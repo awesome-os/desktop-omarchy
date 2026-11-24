@@ -44,3 +44,13 @@ sh -n t2desktop/t2desktop-session.sh
 ## Attribution & License
 
 T2Desktop is derived from **[omacom/omarchy](https://github.com/omacom/omarchy)** by David Heinemeier Hansson and contributors, released under the **[MIT License](LICENSE)**. All upstream Omarchy Hyprland/Waybar/Walker configurations, themes, and documentation are preserved under MIT terms alongside the Awesome-OS T2Linux + `b8g-ghost` CAS port.
+
+## Quick Install & Run (Windows / Linux / macOS)
+
+```sh
+# Download latest release assets (all platforms)
+gh release download -R awesome-os/t2desktop-omarchy --dir ./t2desktop-omarchy-release
+
+# Or clone source directly (all platforms)
+git clone https://github.com/awesome-os/t2desktop-omarchy.git && cd t2desktop-omarchy
+```
