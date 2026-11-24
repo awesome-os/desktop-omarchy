@@ -1,0 +1,15 @@
+{
+  "name": "Lumi Chromatic",
+  "mode": "light-chromatic",
+  "background": "#ffffff",
+  "surface": "#f8fafc",
+  "border": "#e2e8f0",
+  "foreground": "#0f172a",
+  "muted": "#64748b",
+  "accent_cyan": "#06b6d4",
+  "accent_violet": "#7c3aed",
+  "accent_magenta": "#ec4899",
+  "accent_gold": "#f59e0b",
+  "wallpaper": "backgrounds/lumi-chromatic-wallpaper.jpg",
+  "bootscreen": "backgrounds/lumi-bootscreen.jpg"
+}
