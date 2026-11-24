@@ -1,0 +1,16 @@
+{
+  "name": "@awesome-os/t2desktop",
+  "version": "0.1.0",
+  "description": "T2Desktop — Sovereign Omarchy (MIT Hyprland/Wayland) desktop edition ported from Arch to T2Linux + Awesome-OS b8g-ghost CAS",
+  "type": "module",
+  "license": "MIT",
+  "main": "./hydrate-desktop.mts",
+  "types": "./hydrate-desktop.mts",
+  "exports": {
+    ".": "./hydrate-desktop.mts"
+  },
+  "scripts": {
+    "test": "node --test test/t2desktop.test.mts",
+    "hydrate": "node hydrate-desktop.mts"
+  }
+}

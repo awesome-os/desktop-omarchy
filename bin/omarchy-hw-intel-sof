@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# omarchy:summary=Detect an Intel SOF-capable audio DSP
+
+# PCI class 0401 (Multimedia audio controller) and 0403 (Audio device) on Intel (8086).
+omarchy-hw-pci --class 0401,0403 8086:*

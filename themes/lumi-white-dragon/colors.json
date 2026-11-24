@@ -1,0 +1,27 @@
+{
+  "name": "Lumi White Dragon",
+  "slug": "lumi-white-dragon",
+  "mode": "dark",
+  "background": "#0d111a",
+  "surface": "#151c2c",
+  "surface_elevated": "#1e293b",
+  "foreground": "#f1f5f9",
+  "muted": "#94a3b8",
+  "accent": "#38bdf8",
+  "accent_secondary": "#5865f2",
+  "active_border": [
+    "#38bdf8",
+    "#5865f2"
+  ],
+  "inactive_border": "#0d111a",
+  "ansi": {
+    "black": "#0d111a",
+    "red": "#f87171",
+    "green": "#34d399",
+    "yellow": "#fbbf24",
+    "blue": "#38bdf8",
+    "magenta": "#5865f2",
+    "cyan": "#22d3ee",
+    "white": "#f1f5f9"
+  }
+}

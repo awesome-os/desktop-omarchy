@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# omarchy:summary=Install and launch Geforce Now.
+# omarchy:group=install
+# omarchy:name=gaming geforce-now
+
+set -e
+
+echo "Installing GeForce NOW..."
+omarchy-pkg-add flatpak
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# Download and run GeForce NOW
+installer="$work/GeForceNOWSetup.bin"
+curl -fsSL --retry 3 https://international.download.nvidia.com/GFNLinux/GeForceNOWSetup.bin -o "$installer"
+chmod +x "$installer"
+"$installer"
+
+# Ensure a separate browser process not started by GFN is available.
+# If not, it seems like GFN has a tendency to hang on login.
+setsid omarchy-launch-browser

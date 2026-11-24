@@ -1,0 +1,24 @@
+name: T2Desktop CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate POSIX Wayland/Hyprland session launcher
+        run: sh -n t2desktop/t2desktop-session.sh
+
+      - name: Run T2Desktop CAS hydrator & theme test suite
+        run: node --test t2desktop/test/t2desktop.test.mts

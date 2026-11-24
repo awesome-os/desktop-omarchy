@@ -1,0 +1,56 @@
+/* Lumi White Dragon — T2Desktop Signature Waybar Theme */
+
+@define-color bg_obsidian #0d111a;
+@define-color bg_surface #151c2c;
+@define-color fg_dragon #f1f5f9;
+@define-color fg_muted #94a3b8;
+@define-color accent_cyan #38bdf8;
+@define-color accent_violet #5865f2;
+@define-color border_glow rgba(56, 189, 248, 0.35);
+
+* {
+  font-family: "JetBrainsMono Nerd Font", "Inter", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 0;
+}
+
+window#waybar {
+  background-color: @bg_obsidian;
+  color: @fg_dragon;
+  border-bottom: 1px solid @border_glow;
+}
+
+#workspaces button {
+  padding: 2px 10px;
+  margin: 4px 3px;
+  border-radius: 6px;
+  background-color: @bg_surface;
+  color: @fg_muted;
+  border: 1px solid transparent;
+}
+
+#workspaces button.active {
+  background: linear-gradient(135deg, @accent_cyan, @accent_violet);
+  color: @bg_obsidian;
+  border-color: @accent_cyan;
+}
+
+#clock,
+#battery,
+#cpu,
+#memory,
+#network,
+#pulseaudio,
+#tray {
+  padding: 2px 10px;
+  margin: 4px 3px;
+  border-radius: 6px;
+  background-color: @bg_surface;
+  color: @fg_dragon;
+  border: 1px solid @border_glow;
+}
+
+#clock {
+  color: @accent_cyan;
+}
