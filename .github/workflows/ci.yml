@@ -1,12 +1,17 @@
-name: T2Desktop CI
+name: T2Desktop Omarchy CI & Release
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  verify:
+  verify-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -22,3 +27,21 @@ jobs:
 
       - name: Run T2Desktop CAS hydrator & theme test suite
         run: node --test t2desktop/test/t2desktop.test.mts
+
+      - name: Package & Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ "${GITHUB_REF}" != refs/tags/* ]]; then TAG="v0.1.0"; fi
+          OUT="t2desktop-omarchy-${TAG}.tar.zst"
+          tar --zstd --exclude='.git' -cf "$OUT" t2desktop config default themes bin install version README.md LICENSE
+          sha256sum "$OUT" > SHA256SUMS.txt
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$OUT" SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$OUT" SHA256SUMS.txt \
+              --title "T2Desktop Omarchy ${TAG}" \
+              --notes "Awesome-OS T2Desktop Omarchy Edition (MIT Hyprland/Wayland + Lumi Chromatic + b8g-ghost cas-v1)."
+          fi
