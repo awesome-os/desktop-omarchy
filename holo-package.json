@@ -1,0 +1,19 @@
+{
+  "name": "desktop-omarchy",
+  "version": "1.0.0",
+  "license": "MIT",
+  "description": "Reusable standalone Omarchy Hyprland desktop, 25-theme cascading engine, and hotkey runtime for Awesome-OS (Sectium, Wayland, and Web WASM).",
+  "repository": "repository://github.com/awesome-os/desktop-omarchy@main",
+  "projection": "project://coreutils/omarchy?from=repository://github.com/awesome-os/desktop-omarchy@main",
+  "abi": "B8G_ABI_MAGIC_V3",
+  "exports": {
+    ".": "./src/omarchy-theme-engine.mts",
+    "./themes": "./themes/index.json",
+    "./hotkeys": "./src/omarchy-hotkeys.mts",
+    "./web": "./web/index.html"
+  },
+  "dependencies": {
+    "coreutils": "repository://github.com/awesome-os/coreutils@main",
+    "sectium": "repository://github.com/awesome-os/sectium@main"
+  }
+}

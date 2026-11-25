@@ -1,56 +1,44 @@
-# T2Desktop — Sovereign Omarchy Edition for T2Linux + `b8g-ghost` CAS
+# Awesome-OS — `desktop-omarchy`
 
-**T2Desktop** is the sovereign **Awesome-OS** fork of [Omarchy](https://github.com/omacom/omarchy) (MIT Hyprland/Wayland desktop by David Heinemeier Hansson), ported from Arch Linux (`pacman` / `yay` / AUR) onto **T2Linux** and the **`b8g-ghost @ cas-v1`** content-addressed appliance store.
-
-- **Zero `pacman` / `yay` / AUR bloat:** Desktop appliances hydrate directly by SHA-256 from [`awesome-os/b8g-ghost` (`cas-v1`)](https://github.com/awesome-os/b8g-ghost/releases/tag/cas-v1).
-- **Signature Theme — Lumi White Dragon:** Obsidian background (`#0d111a`) with Electric Cyan (`#38bdf8`) and Sovereign Violet (`#5865f2`) active window borders in [`themes/lumi-white-dragon/`](themes/lumi-white-dragon/).
-- **Instant Sovereign Appliances:** `sectium-browser`, `libsectium_display`, `code-oss`, `brave`, `blender`, `obs`, `qt`, `electron`, and `b8g-ghost-abi` resolved via [`t2desktop/hydrate-desktop.mts`](t2desktop/hydrate-desktop.mts).
-- **Clean Wayland/Hyprland Session:** [`t2desktop/t2desktop-session.sh`](t2desktop/t2desktop-session.sh) sets `XDG_CURRENT_DESKTOP=Hyprland`, `B8G_GHOST_CACHE_DIR=/var/lib/b8g/cas`, loads **Lumi White Dragon**, and wires:
-  - `Super + Return` — Sovereign terminal (`ghostty` / `alacritty` / `kitty`)
-  - `Super + B` — `sectium-browser`
-  - `Super + C` — `code-oss`
+> Reusable, standalone **Omarchy Hyprland Desktop**, **25-Theme Cascading Engine**, and **Original Hotkey Runtime** — decoupled from Arch/T2 and natively projectable onto Linux Wayland, **Sectium**, or any browser via **OPFS `v11` CAS**.
 
 ---
 
-## Quick Start
+## Install & Project via `holo-pm`
 
-```sh
-# 1. Resolve the live b8g-ghost cas-v1 desktop appliance catalog (Node 24+, erasable TS)
-node t2desktop/hydrate-desktop.mts
+```powershell
+# Project directly from immutable repository:// into local ./bin/ (0-byte hardlinks)
+holo-pm install repository://github.com/awesome-os/desktop-omarchy@main
 
-# 2. Verify live CAS resolution, Lumi White Dragon theme, and session script
-node --test t2desktop/test/t2desktop.test.mts
-sh -n t2desktop/t2desktop-session.sh
-
-# 3. Launch the T2Desktop Hyprland/Wayland session on T2Linux
-./t2desktop/t2desktop-session.sh
+# Project full Omarchy desktop workspace with static musl awesome-os/coreutils
+holo-project "project://coreutils/omarchy?from=repository://github.com/awesome-os/desktop-omarchy@main"
 ```
 
 ---
 
-## Repository Layout
+## Reusable Architecture
 
-| Path | Description |
+| Module | Purpose |
 | :--- | :--- |
-| [`t2desktop/hydrate-desktop.mts`](t2desktop/hydrate-desktop.mts) | Erasable TypeScript CAS hydrator resolving T2Desktop appliances from `b8g-ghost @ cas-v1`. |
-| [`t2desktop/t2desktop-session.sh`](t2desktop/t2desktop-session.sh) | POSIX Wayland/Hyprland session launcher for T2Linux (`B8G_GHOST_CACHE_DIR=/var/lib/b8g/cas`). |
-| [`t2desktop/test/t2desktop.test.mts`](t2desktop/test/t2desktop.test.mts) | Live `cas-v1` index, theme, and session launcher verification suite. |
-| [`themes/lumi-white-dragon/`](themes/lumi-white-dragon/) | Signature **Lumi White Dragon** theme (`hyprland.conf`, `waybar.css`, `colors.json`, `colors.toml`). |
-| [`config/`](config/), [`default/`](default/), [`themes/`](themes/) | Upstream Omarchy Hyprland, Waybar, Walker, terminal configs, and theme collection. |
-| [`manual/`](manual/) | Upstream [Omarchy Manual](manual/01-welcome-to-omarchy.md) (preserved for reference). |
+| [`themes/index.json`](themes/index.json) | Canonical normalized catalog of all **25 Omarchy themes** (`lumi-chromatic`, `lumi-white-dragon`, `tokyo-night`, `catppuccin`, `gruvbox`, `nord`, `kanagawa`, `rose-pine`, `hackerman`, etc.). |
+| [`src/omarchy-theme-engine.mts`](src/omarchy-theme-engine.mts) | Zero-dependency erasable-TS theme engine + `OmarchyHostAdapter` interface (`HyprlandAdapter`, `SectiumAdapter`, `WebWasiAdapter`). |
+| [`src/omarchy-hotkeys.mts`](src/omarchy-hotkeys.mts) | Original Omarchy Hyprland hotkey map (`Super+Ctrl+Shift+Space`, `Super+Space`, `Super+1..4`, `Super+Enter`, `Super+K`) + W3C Keyboard Lock `KEYBOARD_LOCK_CODES` + `Alt+*` browser fallbacks. |
+| [`web/index.html`](web/index.html) | Self-contained browser Hyprland + 25-Theme Switcher experience (live at `https://awesome-os.com/demo/omarchy.html`). |
+| [`holo-package.json`](holo-package.json) | Pure Holo `v11` metadata package targeting `B8G_ABI_MAGIC_V3` (`0x33564742`). |
 
 ---
 
-## Attribution & License
+## Verification
 
-T2Desktop is derived from **[omacom/omarchy](https://github.com/omacom/omarchy)** by David Heinemeier Hansson and contributors, released under the **[MIT License](LICENSE)**. All upstream Omarchy Hyprland/Waybar/Walker configurations, themes, and documentation are preserved under MIT terms alongside the Awesome-OS T2Linux + `b8g-ghost` CAS port.
-
-## Quick Install & Run (Windows / Linux / macOS)
-
-```sh
-# Install / hydrate from v11 CAS via holo-pm
-holo-pm install repository://github.com/awesome-os/t2desktop-omarchy@main
-
-# Or project & run directly via holo-project (0-byte hardlink)
-holo-project "project://cpp/t2desktop-omarchy?from=repository://github.com/awesome-os/t2desktop-omarchy@main"
+```powershell
+.\bin\node.ps1 --test src/omarchy.test.mts
 ```
+
+---
+
+## Related Core Stack
+
+- [`awesome-os/awesome-os-desktop`](https://github.com/awesome-os/awesome-os-desktop) — Startup Greeter & Desktop Chooser
+- [`awesome-os/sectium`](https://github.com/awesome-os/sectium) — Universal Display Driver (Skia / Dawn WebGPU / Blink / Qt / TTY)
+- [`awesome-os/coreutils`](https://github.com/awesome-os/coreutils) — MIT static musl Rust GNU coreutils
+- [`awesome-os/holo-v11`](https://github.com/awesome-os/holo-v11) — Global Auditable `v11` Registry
