@@ -1,0 +1,40 @@
+{
+  "schema": "holo-compiler-lockfile-v1",
+  "abiMagic": "0x33564742",
+  "casLayout": "v11",
+  "repo": "awesome-os/t2desktop-omarchy",
+  "targets": [
+    "win64",
+    "linux-x64",
+    "linux-arm64",
+    "macos-arm64",
+    "wasm32-wasi"
+  ],
+  "generatedAt": "2026-11-24T23:53:02.473Z",
+  "dependencies": [
+    {
+      "id": "awesome-os/t2desktop-omarchy/SHA256SUMS.txt",
+      "kind": "object",
+      "version": "v0.1.0",
+      "target": "any",
+      "sha512": "545164eeb049144fb2ea65693bd9234218942195e9241b92c5c38c3e78ff842cd5a4354dbd9855522fcc40fc4b95ce24f41d859607e02abc068e3061e6ef8ae0",
+      "size": 99,
+      "executable": false,
+      "blob": "v11/files/54/545164eeb049144fb2ea65693bd9234218942195e9241b92c5c38c3e78ff842cd5a4354dbd9855522fcc40fc4b95ce24f41d859607e02abc068e3061e6ef8ae0",
+      "url": "https://github.com/awesome-os/t2desktop-omarchy/releases/download/v0.1.0/SHA256SUMS.txt",
+      "dependencies": []
+    },
+    {
+      "id": "awesome-os/t2desktop-omarchy/t2desktop-omarchy-v0.1.0.tar.zst",
+      "kind": "object",
+      "version": "v0.1.0",
+      "target": "any",
+      "sha512": "4cb33b1a0c24b54c625421305ca00ec82dbb9c731bcc7bb583a49dc878da3e856491b3feee9b182604e1ca10b8454d2c4bc81825104044c2c637666a5de0762d",
+      "size": 84083690,
+      "executable": false,
+      "blob": "v11/files/4c/4cb33b1a0c24b54c625421305ca00ec82dbb9c731bcc7bb583a49dc878da3e856491b3feee9b182604e1ca10b8454d2c4bc81825104044c2c637666a5de0762d",
+      "url": "https://github.com/awesome-os/t2desktop-omarchy/releases/download/v0.1.0/t2desktop-omarchy-v0.1.0.tar.zst",
+      "dependencies": []
+    }
+  ]
+}
