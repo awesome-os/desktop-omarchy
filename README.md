@@ -48,9 +48,9 @@ T2Desktop is derived from **[omacom/omarchy](https://github.com/omacom/omarchy)*
 ## Quick Install & Run (Windows / Linux / macOS)
 
 ```sh
-# Download latest release assets (all platforms)
-gh release download -R awesome-os/t2desktop-omarchy --dir ./t2desktop-omarchy-release
+# Install / hydrate from v11 CAS via holo-pm
+holo-pm install repository://github.com/awesome-os/t2desktop-omarchy@main
 
-# Or clone source directly (all platforms)
-git clone https://github.com/awesome-os/t2desktop-omarchy.git && cd t2desktop-omarchy
+# Or project & run directly via holo-project (0-byte hardlink)
+holo-project "project://cpp/t2desktop-omarchy?from=repository://github.com/awesome-os/t2desktop-omarchy@main"
 ```
