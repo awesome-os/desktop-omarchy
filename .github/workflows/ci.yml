@@ -43,5 +43,5 @@ jobs:
           else
             gh release create "$TAG" "$OUT" SHA256SUMS.txt \
               --title "T2Desktop Omarchy ${TAG}" \
-              --notes "Awesome-OS T2Desktop Omarchy Edition (MIT Hyprland/Wayland + Lumi Chromatic + b8g-ghost cas-v1)."
+              --notes "Awesome-OS T2Desktop Omarchy Edition (MIT Hyprland/Wayland + Lumi Chromatic + Holo v11 CAS)."
           fi
