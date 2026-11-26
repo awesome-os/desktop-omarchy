@@ -38,7 +38,7 @@ holo-project "project://coreutils/omarchy?from=repository://github.com/awesome-o
 
 ## Related Core Stack
 
-- [`awesome-os/awesome-os-desktop`](https://github.com/awesome-os/awesome-os-desktop) — Startup Greeter & Desktop Chooser
-- [`awesome-os/sectium`](https://github.com/awesome-os/sectium) — Universal Display Driver (Skia / Dawn WebGPU / Blink / Qt / TTY)
+- [`awesome-os/desktop`](https://github.com/awesome-os/desktop) — Startup Greeter & Sovereign Desktop OS Foundation
+- [`awesome-os/sectium-browser`](https://github.com/awesome-os/sectium-browser) · [`awesome-os/awesome-os`](https://github.com/awesome-os/awesome-os) — Sovereign Browser-as-Shell & Core OS Monorepo
 - [`awesome-os/coreutils`](https://github.com/awesome-os/coreutils) — MIT static musl Rust GNU coreutils
 - [`awesome-os/holo-v11`](https://github.com/awesome-os/holo-v11) — Global Auditable `v11` Registry
