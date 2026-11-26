@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Omarchy on Awesome-OS — Live Hyprland + 25-Theme Switcher (WASM + OPFS v11)</title>
+  <title>Omarchy on Awesome-OS — Live Hyprland BSP + WebGPU Compositor + 25 Themes (WASM + OPFS v11)</title>
   <style>
     :root {
       --bg: #1a1b26;
@@ -21,7 +21,7 @@
       --selection: #292e42;
       --border: rgba(122, 162, 247, 0.55);
       --border-inactive: rgba(86, 95, 137, 0.35);
-      --glass: rgba(26, 27, 38, 0.86);
+      --glass: rgba(26, 27, 38, 0.84);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
@@ -63,33 +63,51 @@
       padding: 0 10px; background: var(--glass); backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border-inactive);
       font-size: 12px; color: var(--fg); z-index: 40; flex-shrink: 0;
+      gap: 6px;
     }
-    .wb-left, .wb-center, .wb-right { display: flex; align-items: center; gap: 6px; }
+    .wb-left, .wb-center, .wb-right { display: flex; align-items: center; gap: 5px; min-width: 0; }
     .wb-btn {
       height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid transparent;
-      background: transparent; color: var(--fg); cursor: pointer; font-size: 12px; font-weight: 600;
-      display: inline-flex; align-items: center; gap: 5px; transition: background 120ms ease, color 120ms ease;
+      background: transparent; color: var(--fg); cursor: pointer; font-size: 11.5px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 4px; transition: background 120ms ease, color 120ms ease;
+      white-space: nowrap;
     }
     .wb-btn:hover { background: var(--selection); color: var(--fg-bright); }
     .wb-btn.omega { color: var(--accent); font-size: 14px; font-weight: 800; padding: 0 9px; }
     .wb-btn.ws { width: 24px; justify-content: center; padding: 0; font-family: ui-monospace, Consolas, monospace; }
     .wb-btn.ws.active { background: var(--accent); color: var(--bg-dark); font-weight: 800; }
     .wb-pill {
-      padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600;
+      padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 600;
       background: var(--selection); color: var(--fg-bright);
       border: 1px solid var(--border-inactive); font-family: ui-monospace, Consolas, monospace;
       cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+      white-space: nowrap;
     }
     .wb-pill:hover { border-color: var(--accent); }
-    .wb-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; }
+    .wb-pill.gpu { border-color: rgba(122, 162, 247, 0.45); color: var(--accent); }
+    .wb-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; flex-shrink: 0; }
+    .wb-title-text {
+      margin-left: 4px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: var(--muted);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px;
+    }
+    @media (max-width: 1180px) { .wb-title-text { display: none; } }
 
     /* Hyprland Tiling Stage */
     .stage {
       flex: 1; position: relative; padding: 10px; overflow: hidden;
       display: grid; gap: 10px;
     }
+    #wallpaper-img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: cover; object-position: center;
+      z-index: 0; pointer-events: none;
+      opacity: 0; transition: opacity 320ms ease;
+    }
+    #wallpaper-img.visible { opacity: 1; }
     #wallpaper-canvas {
-      position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      z-index: 1; pointer-events: none;
+      transition: opacity 260ms ease;
     }
     .ws-view {
       position: relative; z-index: 5; width: 100%; height: 100%;
@@ -100,21 +118,81 @@
     .ws-2row { grid-template-rows: 1fr 0.85fr; }
     @media (max-width: 860px) { .ws-2col { grid-template-columns: 1fr; } }
 
-    /* Hyprland Tiled Window */
+    /* Dynamic Hyprland Dwindle BSP Workspace 1 */
+    #ws-1 {
+      display: block;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    #ws-1.hidden { display: none; }
+    .ws-empty {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+      color: var(--fg-bright); font-family: ui-monospace, Consolas, monospace;
+      background: var(--glass); backdrop-filter: blur(12px);
+      border: 1px dashed var(--border); border-radius: 12px;
+      text-align: center; padding: 24px;
+    }
+
+    /* Hyprland Tiled & Floating Window */
     .tile {
       background: var(--glass); backdrop-filter: blur(16px);
       border: 2px solid var(--border-inactive); border-radius: 10px;
       display: flex; flex-direction: column; overflow: hidden; min-height: 0;
       box-shadow: 0 14px 40px rgba(0,0,0,0.38);
-      transition: border-color 140ms ease, background 200ms ease;
+      transition: border-color 140ms ease, background 200ms ease, box-shadow 160ms ease;
     }
-    .tile.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 16px 44px rgba(0,0,0,0.45); }
+    #ws-1 .tile {
+      position: absolute;
+      transition: left 180ms cubic-bezier(.2,.8,.2,1), top 180ms cubic-bezier(.2,.8,.2,1),
+                  width 180ms cubic-bezier(.2,.8,.2,1), height 180ms cubic-bezier(.2,.8,.2,1),
+                  border-color 140ms ease, box-shadow 160ms ease;
+    }
+    #ws-1 .tile.dragging {
+      transition: border-color 140ms ease !important;
+      cursor: grabbing;
+    }
+    .tile.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent), 0 16px 44px rgba(0,0,0,0.48);
+    }
+    .tile.floating {
+      z-index: 25;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.65), 0 0 0 1px var(--accent2);
+      border-color: var(--accent2);
+    }
+    .tile.floating.active {
+      border-color: var(--accent);
+      box-shadow: 0 26px 70px rgba(0,0,0,0.72), 0 0 0 2px var(--accent);
+    }
     .tile-hdr {
-      height: 28px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between;
+      height: 28px; padding: 0 8px 0 10px; display: flex; align-items: center; justify-content: space-between;
       background: var(--bg-dark); border-bottom: 1px solid var(--border-inactive);
       font-size: 11.5px; font-family: ui-monospace, Consolas, monospace; color: var(--muted); flex-shrink: 0;
+      gap: 8px;
     }
+    .tile.floating .tile-hdr { cursor: grab; }
     .tile.active .tile-hdr { color: var(--fg-bright); }
+    .tile-hdr-left { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+    .tile-hdr-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tile-hdr-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .tile-badge {
+      font-size: 10px; padding: 1px 5px; border-radius: 4px;
+      background: var(--selection); color: var(--muted);
+    }
+    .tile-float-tag {
+      font-size: 9.5px; font-weight: 800; padding: 1px 5px; border-radius: 4px;
+      background: var(--accent2); color: var(--bg-dark); letter-spacing: 0.4px;
+    }
+    .tile-act {
+      width: 20px; height: 20px; border-radius: 5px; border: 1px solid transparent;
+      background: transparent; color: var(--muted); cursor: pointer;
+      display: inline-grid; place-items: center; font-size: 12px; line-height: 1;
+      transition: background 110ms ease, color 110ms ease;
+    }
+    .tile-act:hover { background: var(--selection); color: var(--fg-bright); }
+    .tile-act.close:hover { background: var(--red); color: var(--bg-dark); }
     .tile-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; user-select: text; }
 
     /* Alacritty Terminal */
@@ -127,10 +205,10 @@
     }
     .term-prompt {
       padding: 8px 6px 8px 12px; font-family: ui-monospace, Consolas, monospace; font-size: 12.5px;
-      color: var(--green); font-weight: 700;
+      color: var(--green); font-weight: 700; white-space: nowrap;
     }
     .term-in {
-      flex: 1; background: transparent; border: none; outline: none; color: var(--fg-bright);
+      flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--fg-bright);
       font-family: ui-monospace, Consolas, monospace; font-size: 12.5px; padding: 8px 10px 8px 0;
     }
 
@@ -160,7 +238,7 @@
       display: flex; flex-direction: column; gap: 10px; overflow-y: auto;
     }
     .meter-row { display: flex; align-items: center; gap: 10px; }
-    .meter-lbl { width: 88px; color: var(--muted); }
+    .meter-lbl { width: 92px; color: var(--muted); }
     .meter-track { flex: 1; height: 10px; border-radius: 4px; background: var(--bg-dark); overflow: hidden; border: 1px solid var(--border-inactive); }
     .meter-fill { height: 100%; transition: width 450ms ease; }
     .swatch-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
@@ -239,7 +317,7 @@
     <div class="omega-ring"><span>&Omega;</span></div>
     <div style="font-size:1.25rem;font-weight:700;color:#f8fafc">Omarchy on Awesome-OS</div>
     <div class="boot-bar-bg"><div id="boot-bar" class="boot-bar-fill"></div></div>
-    <div id="boot-sub" class="boot-sub">Loading 25 Omarchy themes + OPFS v11 SharedWorker...</div>
+    <div id="boot-sub" class="boot-sub">Booting holo-display-webgpu + 25 Omarchy themes + OPFS v11...</div>
   </div>
 
   <!-- MAKO NOTIFICATION -->
@@ -250,19 +328,26 @@
     <!-- WAYBAR -->
     <div class="waybar">
       <div class="wb-left">
-        <button class="wb-btn omega" title="Omarchy Menu (Alt+Space)" onclick="openWalker('menu')">&Omega;</button>
+        <button class="wb-btn omega" title="Omarchy Menu (Super+Space / Alt+Space)" onclick="openWalker('menu')">&Omega;</button>
         <button class="wb-btn ws active" data-ws="1" onclick="switchWs(1)">1</button>
         <button class="wb-btn ws" data-ws="2" onclick="switchWs(2)">2</button>
         <button class="wb-btn ws" data-ws="3" onclick="switchWs(3)">3</button>
         <button class="wb-btn ws" data-ws="4" onclick="switchWs(4)">4</button>
-        <span style="margin-left:6px;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted)" id="wb-title">Hyprland · Dev Workspace</span>
+        <button class="wb-pill" onclick="spawnTerminalTile()" title="Spawn Tiled Alacritty Terminal (Super+Enter / Alt+Enter)">+ Term</button>
+        <span class="wb-title-text" id="wb-title">Hyprland · Dwindle BSP (3 tiles)</span>
       </div>
       <div class="wb-center">
         <span id="wb-clock" style="font-weight:700;color:var(--fg-bright);font-family:ui-monospace,Consolas,monospace">--:--</span>
       </div>
       <div class="wb-right">
+        <button class="wb-pill gpu" id="wb-gpu-pill" onclick="showGpuStats()" title="holo-display-webgpu paravirtual compositor + B8G_ARENA_V1 SharedArrayBuffer ring">
+          GPU: Init...
+        </button>
+        <button class="wb-pill" id="wb-bg-btn" onclick="cycleBgMode()" title="Cycle Real Omarchy Wallpaper vs Pure WebGPU Shader">
+          BG: Img+GPU
+        </button>
         <button class="wb-pill" id="wb-kbd-btn" onclick="toggleSuperCapture()" title="Enter Fullscreen + Keyboard Lock to capture real Super/Meta hotkeys">
-          &#9000; Capture Super
+          &#9000; Super
         </button>
         <button class="wb-pill" onclick="openWalker('themes')" title="Omarchy Theme Switcher (Super+Ctrl+Shift+Space / Alt+T)">
           <span class="wb-dot"></span>
@@ -276,46 +361,12 @@
     </div>
 
     <!-- HYPRLAND TILING STAGE -->
-    <div class="stage">
+    <div class="stage" id="stage">
+      <img id="wallpaper-img" alt="" decoding="async" />
       <canvas id="wallpaper-canvas"></canvas>
 
-      <!-- WORKSPACE 1: Alacritty + Neovim + btop -->
-      <div class="ws-view ws-2col" id="ws-1">
-        <div class="tile active" id="tile-term" onclick="focusTile(this)">
-          <div class="tile-hdr"><span>Alacritty · wasi-host-web (SharedWorker WASM)</span><span>ttyS0 · coreutils</span></div>
-          <div class="tile-body">
-            <div id="term-out" class="term-out"></div>
-            <form id="term-form" class="term-form">
-              <span class="term-prompt">omarchy@awesome-os ~&gt;</span>
-              <input id="term-in" class="term-in" placeholder="omarchy-theme-list | omarchy-theme-set lumi-chromatic | fastfetch | wasm-check" autocomplete="off" />
-            </form>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-rows:1.15fr 0.85fr;gap:10px;min-height:0">
-          <div class="tile" onclick="focusTile(this)">
-            <div class="tile-hdr"><span>Neovim (LazyVim) · themes/<span id="nvim-theme-path">tokyo-night</span>/colors.toml</span><span>UTF-8 · TOML</span></div>
-            <div class="tile-body">
-              <pre id="nvim-code" class="nvim-code"></pre>
-              <div class="nvim-status">
-                <span><span class="nvim-mode">NORMAL</span> &nbsp;colors.toml</span>
-                <span id="nvim-hex-info">accent=#7aa2f7</span>
-              </div>
-            </div>
-          </div>
-          <div class="tile" onclick="focusTile(this)">
-            <div class="tile-hdr"><span>btop++ · B8G_ABI_MAGIC_V3 (0x33564742)</span><span>OPFS:/v11/files/</span></div>
-            <div class="tile-body">
-              <div class="btop">
-                <div class="meter-row"><span class="meter-lbl">WASM CPU</span><div class="meter-track"><div id="m-cpu" class="meter-fill" style="width:18%;background:var(--accent)"></div></div><span id="v-cpu">18%</span></div>
-                <div class="meter-row"><span class="meter-lbl">OPFS v11</span><div class="meter-track"><div id="m-opfs" class="meter-fill" style="width:32%;background:var(--green)"></div></div><span id="v-opfs">32%</span></div>
-                <div class="meter-row"><span class="meter-lbl">GPU WebGPU</span><div class="meter-track"><div id="m-gpu" class="meter-fill" style="width:14%;background:var(--accent2)"></div></div><span id="v-gpu">14%</span></div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px">Active 16-Color ANSI Palette (live theme cascade):</div>
-                <div id="swatch-strip" class="swatch-strip"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- WORKSPACE 1: Dynamic Hyprland Dwindle BSP Tiling Container -->
+      <div class="ws-view" id="ws-1"></div>
 
       <!-- WORKSPACE 2: Sectium Browser + B8G Emukit -->
       <div class="ws-view hidden" id="ws-2">
@@ -342,7 +393,7 @@
           </div>
         </div>
         <div class="tile" onclick="focusTile(this)">
-          <div class="tile-hdr"><span>fastfetch · Awesome-OS × Omarchy</span><span>holo-display-wayland</span></div>
+          <div class="tile-hdr"><span>fastfetch · Awesome-OS × Omarchy</span><span>holo-display-webgpu</span></div>
           <div class="tile-body">
             <pre id="fastfetch-pane" class="term-out"></pre>
           </div>
@@ -376,14 +427,49 @@
     </div>
   </div>
 
-  <script>
+  <script type="module">
+    const B8G_ABI_MAGIC_V3 = 0x33564742;
+    const HYPR_GAP = 10;
+    const MAX_WS1_TILES = 6;
+
+    // Bundled authentic Omarchy wallpapers (< 3 MB total)
+    const THEME_WALLPAPERS = {
+      'lumi-chromatic': './wallpapers/lumi-chromatic-wallpaper.jpg',
+      'tokyo-night': './wallpapers/tokyo-night-omarchy.webp',
+      'catppuccin': './wallpapers/catppuccin.webp',
+      'catppuccin-latte': './wallpapers/catppuccin.webp',
+      'gruvbox': './wallpapers/gruvbox.webp',
+      'nord': './wallpapers/nord.webp',
+      'everforest': './wallpapers/everforest.webp',
+      'rose-pine': './wallpapers/rose-pine.webp',
+      'flexoki-light': './wallpapers/flexoki-light.webp',
+      'ristretto': './wallpapers/ristretto.webp',
+      'vantablack': './wallpapers/vantablack.webp',
+      'matte-black': './wallpapers/vantablack.webp',
+    };
+
+    const BG_MODES = ['blend', 'gpu', 'image'];
+    const BG_MODE_LABELS = { blend: 'BG: Img+GPU', gpu: 'BG: WebGPU', image: 'BG: Image' };
+
     let THEMES = [];
     let currentThemeId = localStorage.getItem('omarchy_theme') || 'tokyo-night';
+    let currentPalette = null;
+    let currentThemeObj = null;
+    let bgMode = localStorage.getItem('omarchy_bg_mode') || 'blend';
+    if (!BG_MODES.includes(bgMode)) bgMode = 'blend';
+
     let walkerMode = 'themes';
     let walkerItems = [];
     let walkerIndex = 0;
     let previewBackupTheme = null;
     let activeWs = 1;
+
+    // Dynamic Hyprland Dwindle BSP state for Workspace 1
+    let ws1Tiles = [];
+    let activeTileId = 'term-1';
+    let termSeq = 0;
+    let floatZTop = 26;
+    let lastExecTermId = 'term-1';
 
     // Register OPFS v11 Service Worker (0 Cache API)
     if ('serviceWorker' in navigator) {
@@ -400,17 +486,22 @@
       port = new Worker('./wasi-host-worker.js?v=11.2');
     }
 
-    const termOut = document.getElementById('term-out');
-    const termIn = document.getElementById('term-in');
     const wbCasPill = document.getElementById('wb-cas-pill');
+    const wbGpuPill = document.getElementById('wb-gpu-pill');
+    const wbBgBtn = document.getElementById('wb-bg-btn');
+    const wallpaperImg = document.getElementById('wallpaper-img');
+    const wallpaperCanvas = document.getElementById('wallpaper-canvas');
 
     port.onmessage = (ev) => {
       const msg = ev.data;
       if (msg.type === 'ready' || msg.type === 'boot-log') {
         wbCasPill.textContent = 'OPFS v11 (' + (msg.casCount || 1) + ')';
       } else if (msg.type === 'shell-out') {
-        termOut.textContent += (msg.out ? msg.out + '\n' : '');
-        termOut.scrollTop = termOut.scrollHeight;
+        const outEl = getTerminalOutById(lastExecTermId) || getAnyTerminalOut();
+        if (outEl) {
+          outEl.textContent += (msg.out ? msg.out + '\n' : '');
+          outEl.scrollTop = outEl.scrollHeight;
+        }
       }
     };
 
@@ -440,6 +531,15 @@
       return { bg, bgDark, surface, fg, fgBright, muted, accent, accent2, green, yellow, red, cyan, selection };
     }
 
+    function hexToRgb01(hex) {
+      const h = (hex || '#1a1b26').replace('#', '');
+      return [
+        (parseInt(h.slice(0, 2), 16) || 26) / 255,
+        (parseInt(h.slice(2, 4), 16) || 27) / 255,
+        (parseInt(h.slice(4, 6), 16) || 38) / 255,
+      ];
+    }
+
     function hexToRgba(hex, a) {
       const h = (hex || '#1a1b26').replace('#', '');
       const r = parseInt(h.slice(0, 2), 16) || 26;
@@ -448,10 +548,850 @@
       return `rgba(${r},${g},${b},${a})`;
     }
 
+    function hashString(str) {
+      let h = 2166136261 >>> 0;
+      for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h, 16777619) >>> 0;
+      }
+      return h >>> 0;
+    }
+
+    // =========================================================================
+    // 1. B8G_ARENA_V1 SharedArrayBuffer Ring + holo-display-webgpu.mjs Driver
+    // =========================================================================
+    class B8GArenaRing {
+      constructor(byteLength = 16384) {
+        this.isShared = typeof SharedArrayBuffer !== 'undefined';
+        this.buffer = this.isShared ? new SharedArrayBuffer(byteLength) : new ArrayBuffer(byteLength);
+        this.u32 = new Uint32Array(this.buffer);
+        this.f32 = new Float32Array(this.buffer);
+        // 64-byte aligned header (16 u32 words)
+        this.u32[0] = B8G_ABI_MAGIC_V3;
+        this.u32[1] = 1; // B8G_ARENA_V1
+        this.u32[2] = 0; // write seq
+        this.u32[3] = 0; // surface count
+        this.u32[4] = 0; // last frame time in microseconds
+        this.u32[5] = 0; // theme hash
+      }
+
+      submitSurfaces(surfaces, themeId, frameMs) {
+        const count = Math.min(surfaces.length, 32);
+        const themeHash = hashString(themeId || 'tokyo-night');
+        // Write 64-byte (16 float/u32) surface descriptors starting at offset 16
+        for (let i = 0; i < count; i++) {
+          const s = surfaces[i];
+          const base = 16 + i * 16;
+          this.u32[base + 0] = hashString(String(s.id || i));
+          this.f32[base + 1] = s.x || 0;
+          this.f32[base + 2] = s.y || 0;
+          this.f32[base + 3] = s.w || 0;
+          this.f32[base + 4] = s.h || 0;
+          this.u32[base + 5] = (s.active ? 1 : 0) | (s.floating ? 2 : 0) | ((s.ws || 1) << 4);
+          this.u32[base + 6] = themeHash;
+          this.u32[base + 7] = Math.round((frameMs || 0.3) * 1000);
+        }
+        this.u32[3] = count;
+        this.u32[4] = Math.round((frameMs || 0.3) * 1000);
+        this.u32[5] = themeHash;
+        if (this.isShared && typeof Atomics !== 'undefined') {
+          return Atomics.add(this.u32, 2, 1) + 1;
+        }
+        this.u32[2] = (this.u32[2] + 1) >>> 0;
+        return this.u32[2];
+      }
+
+      getStats() {
+        const seq = (this.isShared && typeof Atomics !== 'undefined') ? Atomics.load(this.u32, 2) : this.u32[2];
+        return {
+          magic: '0x' + this.u32[0].toString(16),
+          shared: this.isShared,
+          seq,
+          surfaces: this.u32[3],
+          frameUs: this.u32[4],
+        };
+      }
+    }
+
+    const b8gRing = new B8GArenaRing(16384);
+
+    // Unified Paravirtual Compositor (prefers ./holo-display-webgpu.mjs, with built-in WebGPU WGSL + Canvas2D fallback)
+    const compositor = {
+      backend: 'Init',
+      externalDriver: null,
+      device: null,
+      ctx: null,
+      pipeline: null,
+      uniformBuffer: null,
+      bindGroup: null,
+      canvas2d: null,
+      frameMs: 0.3,
+      rafId: 0,
+      startTime: performance.now(),
+      palette: null,
+      isLight: false,
+      hasWallpaper: false,
+      surfaces: [],
+
+      async init(canvas) {
+        // 1. Try external ./holo-display-webgpu.mjs driver first
+        try {
+          const mod = await import('./holo-display-webgpu.mjs');
+          let driver = null;
+          if (typeof mod.createHoloDisplay === 'function') {
+            driver = await mod.createHoloDisplay({ canvas, ringBuffer: b8gRing.buffer, magic: B8G_ABI_MAGIC_V3 });
+          } else if (typeof mod.createHoloCompositor === 'function') {
+            driver = await mod.createHoloCompositor({ canvas, ringBuffer: b8gRing.buffer });
+          } else if (typeof mod.HoloDisplayWebGPU === 'function') {
+            driver = new mod.HoloDisplayWebGPU(canvas, { ringBuffer: b8gRing.buffer });
+            if (typeof driver.init === 'function') await driver.init();
+          } else if (typeof mod.default === 'function') {
+            driver = new mod.default(canvas, { ringBuffer: b8gRing.buffer });
+            if (typeof driver.init === 'function') await driver.init();
+          }
+          if (driver) {
+            this.externalDriver = driver;
+            const tel = typeof driver.getTelemetry === 'function' ? driver.getTelemetry() : driver.telemetry;
+            this.backend = (tel && tel.backend) ? String(tel.backend) : (navigator.gpu ? 'WebGPU' : 'Canvas2D');
+            this.updateTelemetryPill();
+            return;
+          }
+        } catch {
+          // Module not yet copied or unavailable — fall through to built-in WebGPU WGSL compositor
+        }
+
+        // 2. Built-in Real WebGPU (navigator.gpu WGSL) compositor
+        if (navigator.gpu) {
+          try {
+            const adapter = await navigator.gpu.requestAdapter();
+            if (adapter) {
+              const device = await adapter.requestDevice();
+              const ctx = canvas.getContext('webgpu');
+              if (ctx) {
+                const format = navigator.gpu.getPreferredCanvasFormat();
+                ctx.configure({ device, format, alphaMode: 'premultiplied' });
+                const wgsl = /* wgsl */`
+                  struct Uniforms {
+                    resTimeAlpha : vec4<f32>,
+                    bgDarkLight  : vec4<f32>,
+                    accentCount  : vec4<f32>,
+                    accent2Seq   : vec4<f32>,
+                  };
+                  @group(0) @binding(0) var<uniform> u : Uniforms;
+
+                  @vertex
+                  fn vs_main(@builtin(vertex_index) idx : u32) -> @builtin(position) vec4<f32> {
+                    var pos = array<vec2<f32>, 3>(
+                      vec2<f32>(-1.0, -3.0),
+                      vec2<f32>(-1.0,  1.0),
+                      vec2<f32>( 3.0,  1.0)
+                    );
+                    return vec4<f32>(pos[idx], 0.0, 1.0);
+                  }
+
+                  @fragment
+                  fn fs_main(@builtin(position) fragCoord : vec4<f32>) -> @location(0) vec4<f32> {
+                    let res = max(u.resTimeAlpha.xy, vec2<f32>(1.0, 1.0));
+                    let uv = fragCoord.xy / res;
+                    let t = u.resTimeAlpha.z;
+                    let alpha = u.resTimeAlpha.w;
+                    let bg = u.bgDarkLight.rgb;
+                    let isLight = u.bgDarkLight.w;
+                    let a1 = u.accentCount.rgb;
+                    let a2 = u.accent2Seq.rgb;
+
+                    let p1 = vec2<f32>(0.22 + 0.08 * sin(t * 0.35), 0.28 + 0.07 * cos(t * 0.28));
+                    let p2 = vec2<f32>(0.78 + 0.07 * cos(t * 0.31), 0.74 + 0.08 * sin(t * 0.24));
+                    let d1 = length(uv - p1);
+                    let d2 = length(uv - p2);
+                    let g1 = exp(-d1 * d1 * 4.2) * (0.34 - 0.06 * isLight);
+                    let g2 = exp(-d2 * d2 * 4.5) * (0.30 - 0.06 * isLight);
+
+                    var col = mix(bg * 0.86, bg * 1.12, uv.x * 0.6 + uv.y * 0.4);
+                    col = col + a1 * g1 + a2 * g2;
+
+                    // Subtle Hyprland 56px spatial grid
+                    let gx = abs(fract(fragCoord.x / 56.0) - 0.5);
+                    let gy = abs(fract(fragCoord.y / 56.0) - 0.5);
+                    let line = step(0.482, max(gx, gy));
+                    col = mix(col, a1, line * 0.075);
+
+                    return vec4<f32>(col * alpha, alpha);
+                  }
+                `;
+                const module = device.createShaderModule({ code: wgsl });
+                const pipeline = device.createRenderPipeline({
+                  layout: 'auto',
+                  vertex: { module, entryPoint: 'vs_main' },
+                  fragment: { module, entryPoint: 'fs_main', targets: [{ format }] },
+                  primitive: { topology: 'triangle-list' },
+                });
+                const uniformBuffer = device.createBuffer({
+                  size: 64,
+                  usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+                });
+                const bindGroup = device.createBindGroup({
+                  layout: pipeline.getBindGroupLayout(0),
+                  entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+                });
+                this.device = device;
+                this.ctx = ctx;
+                this.pipeline = pipeline;
+                this.uniformBuffer = uniformBuffer;
+                this.bindGroup = bindGroup;
+                this.backend = 'WebGPU';
+                this.resize();
+                this.startLoop();
+                this.updateTelemetryPill();
+                return;
+              }
+            }
+          } catch {
+            // Fall back cleanly to Canvas2D
+          }
+        }
+
+        // 3. Built-in Canvas2D fallback
+        this.canvas2d = canvas.getContext('2d');
+        this.backend = 'Canvas2D';
+        this.resize();
+        this.renderOnce();
+        this.updateTelemetryPill();
+      },
+
+      resize() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.max(1, Math.floor(window.innerWidth * (this.backend === 'WebGPU' ? dpr : 1)));
+        const h = Math.max(1, Math.floor(window.innerHeight * (this.backend === 'WebGPU' ? dpr : 1)));
+        if (wallpaperCanvas.width !== w || wallpaperCanvas.height !== h) {
+          wallpaperCanvas.width = w;
+          wallpaperCanvas.height = h;
+        }
+        if (this.externalDriver && typeof this.externalDriver.resize === 'function') {
+          this.externalDriver.resize(w, h);
+        }
+        if (this.backend === 'Canvas2D') this.renderOnce();
+      },
+
+      setTheme(p, isLight, themeId) {
+        this.palette = p;
+        this.isLight = !!isLight;
+        const wpUrl = THEME_WALLPAPERS[themeId] || '';
+        this.hasWallpaper = !!wpUrl;
+        if (wpUrl && bgMode !== 'gpu') {
+          if (wallpaperImg.dataset.src !== wpUrl) {
+            wallpaperImg.dataset.src = wpUrl;
+            wallpaperImg.src = wpUrl;
+          }
+          wallpaperImg.classList.add('visible');
+        } else {
+          wallpaperImg.classList.remove('visible');
+        }
+        wallpaperCanvas.style.opacity = (this.hasWallpaper && bgMode === 'image') ? '0' : '1';
+
+        if (this.externalDriver) {
+          if (typeof this.externalDriver.setTheme === 'function') this.externalDriver.setTheme({ ...p, id: themeId, light: isLight, wallpaperUrl: wpUrl, bgMode });
+          else if (typeof this.externalDriver.setPalette === 'function') this.externalDriver.setPalette(p);
+          if (typeof this.externalDriver.setWallpaper === 'function') this.externalDriver.setWallpaper(bgMode === 'gpu' ? null : wpUrl);
+        }
+        if (this.backend === 'Canvas2D') this.renderOnce();
+      },
+
+      submitSurfaces(surfaces, themeId) {
+        this.surfaces = surfaces;
+        b8gRing.submitSurfaces(surfaces, themeId, this.frameMs);
+        if (this.externalDriver) {
+          if (typeof this.externalDriver.submitSurfaces === 'function') this.externalDriver.submitSurfaces(surfaces);
+          else if (typeof this.externalDriver.syncWindows === 'function') this.externalDriver.syncWindows(surfaces);
+          else if (typeof this.externalDriver.submitWindow === 'function') {
+            surfaces.forEach((s) => this.externalDriver.submitWindow(s));
+          }
+        }
+        this.updateTelemetryPill();
+      },
+
+      getOverlayAlpha() {
+        if (this.hasWallpaper && bgMode === 'image') return 0.0;
+        if (this.hasWallpaper && bgMode === 'blend') return this.isLight ? 0.24 : 0.34;
+        return 1.0;
+      },
+
+      renderOnce() {
+        const p = this.palette;
+        if (!p) return;
+        const t0 = performance.now();
+        if (this.backend === 'WebGPU' && this.device && this.ctx && this.pipeline) {
+          const alpha = this.getOverlayAlpha();
+          const bg = hexToRgb01(p.bgDark);
+          const a1 = hexToRgb01(p.accent);
+          const a2 = hexToRgb01(p.accent2);
+          const stats = b8gRing.getStats();
+          const data = new Float32Array([
+            wallpaperCanvas.width, wallpaperCanvas.height, (t0 - this.startTime) / 1000, alpha,
+            bg[0], bg[1], bg[2], this.isLight ? 1.0 : 0.0,
+            a1[0], a1[1], a1[2], this.surfaces.length,
+            a2[0], a2[1], a2[2], stats.seq % 1024,
+          ]);
+          this.device.queue.writeBuffer(this.uniformBuffer, 0, data);
+          const encoder = this.device.createCommandEncoder();
+          const pass = encoder.beginRenderPass({
+            colorAttachments: [{
+              view: this.ctx.getCurrentTexture().createView(),
+              clearValue: { r: 0, g: 0, b: 0, a: 0 },
+              loadOp: 'clear',
+              storeOp: 'store',
+            }],
+          });
+          pass.setPipeline(this.pipeline);
+          pass.setBindGroup(0, this.bindGroup);
+          pass.draw(3);
+          pass.end();
+          this.device.queue.submit([encoder.finish()]);
+          this.frameMs = Math.max(0.1, +(performance.now() - t0).toFixed(1));
+        } else if (this.canvas2d) {
+          const ctx = this.canvas2d;
+          const w = wallpaperCanvas.width;
+          const h = wallpaperCanvas.height;
+          ctx.clearRect(0, 0, w, h);
+          const alpha = this.getOverlayAlpha();
+          if (alpha > 0.01) {
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            const g = ctx.createLinearGradient(0, 0, w, h);
+            g.addColorStop(0, p.bgDark);
+            g.addColorStop(0.55, p.bg);
+            g.addColorStop(1, p.surface);
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, w, h);
+
+            const r1 = ctx.createRadialGradient(w * 0.2, h * 0.25, 10, w * 0.2, h * 0.25, w * 0.45);
+            r1.addColorStop(0, hexToRgba(p.accent, this.isLight ? 0.26 : 0.30));
+            r1.addColorStop(1, 'transparent');
+            ctx.fillStyle = r1;
+            ctx.fillRect(0, 0, w, h);
+
+            const r2 = ctx.createRadialGradient(w * 0.82, h * 0.78, 10, w * 0.82, h * 0.78, w * 0.42);
+            r2.addColorStop(0, hexToRgba(p.accent2, this.isLight ? 0.24 : 0.26));
+            r2.addColorStop(1, 'transparent');
+            ctx.fillStyle = r2;
+            ctx.fillRect(0, 0, w, h);
+
+            ctx.strokeStyle = hexToRgba(p.accent, this.isLight ? 0.08 : 0.07);
+            ctx.lineWidth = 1;
+            for (let x = 0; x < w; x += 56) {
+              ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = 0; y < h; y += 56) {
+              ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+            ctx.restore();
+          }
+          this.frameMs = Math.max(0.2, +(performance.now() - t0).toFixed(1));
+        }
+      },
+
+      startLoop() {
+        let lastPillUpdate = 0;
+        const step = (now) => {
+          this.renderOnce();
+          if (now - lastPillUpdate > 1200) {
+            lastPillUpdate = now;
+            this.updateTelemetryPill();
+          }
+          this.rafId = requestAnimationFrame(step);
+        };
+        this.rafId = requestAnimationFrame(step);
+      },
+
+      updateTelemetryPill() {
+        if (this.externalDriver && typeof this.externalDriver.getTelemetry === 'function') {
+          const tel = this.externalDriver.getTelemetry();
+          if (tel && typeof tel.frameMs === 'number') this.frameMs = +tel.frameMs.toFixed(1);
+          if (tel && tel.backend) this.backend = String(tel.backend);
+        }
+        const ringTag = b8gRing.isShared ? 'B8G SAB ring' : 'B8G ring';
+        wbGpuPill.textContent = `GPU: ${this.backend} (${this.frameMs.toFixed(1)}ms · ${ringTag})`;
+      },
+    };
+
+    window.showGpuStats = () => {
+      const s = b8gRing.getStats();
+      showToast(`holo-display-webgpu: ${compositor.backend} (${compositor.frameMs.toFixed(1)}ms) · ${s.surfaces} surfaces · ring seq #${s.seq} (${s.shared ? 'SharedArrayBuffer' : 'ArrayBuffer'})`);
+    };
+
+    window.cycleBgMode = () => {
+      const idx = (BG_MODES.indexOf(bgMode) + 1) % BG_MODES.length;
+      bgMode = BG_MODES[idx];
+      localStorage.setItem('omarchy_bg_mode', bgMode);
+      wbBgBtn.textContent = BG_MODE_LABELS[bgMode];
+      if (currentPalette && currentThemeObj) {
+        compositor.setTheme(currentPalette, currentThemeObj.light, currentThemeObj.id);
+      }
+      const hasWp = !!THEME_WALLPAPERS[currentThemeId];
+      showToast(`Wallpaper mode → ${BG_MODE_LABELS[bgMode]}${hasWp ? '' : ' (theme uses procedural WebGPU shader)'}`);
+    };
+
+    // =========================================================================
+    // 2. Real Hyprland Dwindle BSP Dynamic Tiling Engine (Workspace 1)
+    // =========================================================================
+    const ws1El = document.getElementById('ws-1');
+
+    function getTerminalOutById(tileId) {
+      const t = ws1Tiles.find((x) => x.id === tileId && x.kind === 'terminal');
+      return t ? t.el.querySelector('.term-out') : null;
+    }
+
+    function getAnyTerminalOut() {
+      const t = ws1Tiles.find((x) => x.kind === 'terminal');
+      return t ? t.el.querySelector('.term-out') : null;
+    }
+
+    function handleTerminalCommand(tile, rawCmd) {
+      const outEl = tile.el.querySelector('.term-out');
+      const cmd = rawCmd.trim();
+      if (!cmd) return;
+      outEl.textContent += `omarchy@awesome-os ~> ${cmd}\n`;
+      if (cmd === 'clear') {
+        outEl.textContent = '';
+      } else if (cmd === 'help') {
+        outEl.textContent += [
+          'Omarchy Hyprland + Awesome-OS Commands:',
+          '  omarchy-theme-list             List all 25 authentic Omarchy themes',
+          '  omarchy-theme-set <theme-id>   Switch theme live (e.g. lumi-chromatic, gruvbox, nord)',
+          '  omarchy-theme-next             Cycle to next Omarchy theme',
+          '  hyprctl clients                List active Hyprland Dwindle BSP & floating windows',
+          '  fastfetch                      Show system + WebGPU compositor + theme info',
+          '  wasm-check / holo-pm status    Run live B8G_ABI_MAGIC_V3 WASM in SharedWorker',
+          '  reboot                         Return to Awesome-OS Desktop Greeter',
+          'Hotkeys: Super/Alt+Enter (New Term) | Super/Alt+W (Close) | Super/Alt+V (Float) | Super/Alt+←/→ (Focus)',
+        ].join('\n') + '\n';
+      } else if (cmd === 'omarchy-theme-list') {
+        outEl.textContent += THEMES.map((t) => {
+          const wp = THEME_WALLPAPERS[t.id] ? ' [wp]' : '';
+          return `  ${t.id === currentThemeId ? '*' : ' '} ${t.id.padEnd(20)} (${t.light ? 'light' : 'dark'})${wp}`;
+        }).join('\n') + '\n';
+      } else if (cmd.startsWith('omarchy-theme-set ')) {
+        const id = cmd.slice('omarchy-theme-set '.length).trim();
+        const found = THEMES.find((t) => t.id === id);
+        if (found) {
+          applyTheme(found.id, true);
+          outEl.textContent += `Applied theme "${found.label}" (${found.id}) across Hyprland, Waybar, WebGPU & Neovim.\n`;
+        } else {
+          outEl.textContent += `Unknown theme "${id}". Run "omarchy-theme-list" to see all 25 themes.\n`;
+        }
+      } else if (cmd === 'omarchy-theme-next') {
+        nextTheme();
+      } else if (cmd === 'hyprctl clients') {
+        const stats = b8gRing.getStats();
+        outEl.textContent += `Hyprland Dwindle BSP (${ws1Tiles.length} windows · B8G ring seq #${stats.seq}):\n`;
+        ws1Tiles.forEach((w, idx) => {
+          const r = w.el.getBoundingClientRect();
+          outEl.textContent += `  [${idx}] ${w.id.padEnd(8)} ${w.floating ? 'FLOAT' : 'TILED'} ${w.id === activeTileId ? '*ACTIVE' : '       '} ${Math.round(r.width)}x${Math.round(r.height)}@${Math.round(r.left)},${Math.round(r.top)}  ${w.title}\n`;
+        });
+      } else if (cmd === 'fastfetch') {
+        outEl.textContent += document.getElementById('fastfetch-pane').textContent + '\n';
+      } else if (cmd === 'reboot') {
+        location.href = './';
+      } else {
+        lastExecTermId = tile.id;
+        port.postMessage({ type: 'shell-exec', cmd });
+      }
+      outEl.scrollTop = outEl.scrollHeight;
+    }
+
+    function createTileShell(tile) {
+      const el = document.createElement('div');
+      el.className = 'tile';
+      el.dataset.tileId = tile.id;
+      el.addEventListener('mousedown', () => focusTileById(tile.id));
+
+      const hdr = document.createElement('div');
+      hdr.className = 'tile-hdr';
+      hdr.innerHTML =
+        `<div class="tile-hdr-left">` +
+          `<span class="tile-float-tag" style="display:none">FLOAT</span>` +
+          `<span class="tile-hdr-title">${tile.titleHtml || tile.title}</span>` +
+        `</div>` +
+        `<div class="tile-hdr-right">` +
+          `<span class="tile-badge">${tile.badge}</span>` +
+          `<button class="tile-act float-btn" title="Toggle Floating (Super+V / Alt+V)">&#10697;</button>` +
+          `<button class="tile-act close" title="Close Window (Super+W / Alt+W)">&times;</button>` +
+        `</div>`;
+
+      hdr.querySelector('.float-btn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleTileFloat(tile.id);
+      });
+      hdr.querySelector('.close').addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeTile(tile.id);
+      });
+
+      // Drag support when floating
+      hdr.addEventListener('pointerdown', (e) => {
+        if (!tile.floating || e.target.closest('button')) return;
+        e.preventDefault();
+        focusTileById(tile.id);
+        el.classList.add('dragging');
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const origLeft = tile.floatRect ? tile.floatRect.left : el.offsetLeft;
+        const origTop = tile.floatRect ? tile.floatRect.top : el.offsetTop;
+
+        const onMove = (ev) => {
+          const maxL = Math.max(0, ws1El.clientWidth - (tile.floatRect ? tile.floatRect.width : 360));
+          const maxT = Math.max(0, ws1El.clientHeight - 48);
+          const nl = Math.max(0, Math.min(maxL, origLeft + (ev.clientX - startX)));
+          const nt = Math.max(0, Math.min(maxT, origTop + (ev.clientY - startY)));
+          tile.floatRect = {
+            left: nl,
+            top: nt,
+            width: tile.floatRect ? tile.floatRect.width : el.offsetWidth,
+            height: tile.floatRect ? tile.floatRect.height : el.offsetHeight,
+          };
+          el.style.left = nl + 'px';
+          el.style.top = nt + 'px';
+        };
+        const onUp = () => {
+          el.classList.remove('dragging');
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          submitWorkspaceSurfaces();
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+
+      const body = document.createElement('div');
+      body.className = 'tile-body';
+      el.append(hdr, body);
+      tile.el = el;
+      return { el, body };
+    }
+
+    function createTerminalTile(welcomeBanner = false) {
+      termSeq += 1;
+      const id = 'term-' + termSeq;
+      const tile = {
+        id,
+        kind: 'terminal',
+        title: `Alacritty #${termSeq} · wasi-host-web (SharedWorker WASM)`,
+        badge: 'ttyS0 · coreutils',
+        floating: false,
+        floatRect: null,
+        el: null,
+      };
+      const { el, body } = createTileShell(tile);
+      body.innerHTML =
+        `<div class="term-out"></div>` +
+        `<form class="term-form">` +
+          `<span class="term-prompt">omarchy@awesome-os ~&gt;</span>` +
+          `<input class="term-in" placeholder="omarchy-theme-list | hyprctl clients | fastfetch | wasm-check" autocomplete="off" />` +
+        `</form>`;
+
+      const outEl = body.querySelector('.term-out');
+      const formEl = body.querySelector('.term-form');
+      const inEl = body.querySelector('.term-in');
+      if (welcomeBanner) {
+        outEl.textContent =
+          `Welcome to Omarchy on Awesome-OS (Hyprland Dwindle BSP + WebGPU + 25 Themes)\n` +
+          `  Super/Alt+Enter : Spawn tiled Alacritty   |  Super/Alt+W : Close active tile\n` +
+          `  Super/Alt+V     : Toggle Floating window  |  Super/Alt+←/→ : Focus tile\n` +
+          `  Super/Alt+T     : 25-Theme Switcher       |  Type "help" or "hyprctl clients"\n\n`;
+      } else {
+        outEl.textContent = `Alacritty #${termSeq} spawned via Hyprland Dwindle BSP (B8G_ARENA_V1 surface).\nType "hyprctl clients" or "help".\n\n`;
+      }
+
+      formEl.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const val = inEl.value;
+        inEl.value = '';
+        handleTerminalCommand(tile, val);
+      });
+      el.addEventListener('click', (e) => {
+        if (!e.target.closest('button') && window.getSelection().toString() === '') {
+          inEl.focus();
+        }
+      });
+      return tile;
+    }
+
+    function createNvimTile() {
+      const tile = {
+        id: 'nvim-1',
+        kind: 'nvim',
+        title: 'Neovim (LazyVim)',
+        titleHtml: 'Neovim (LazyVim) · themes/<span id="nvim-theme-path">tokyo-night</span>/colors.toml',
+        badge: 'UTF-8 · TOML',
+        floating: false,
+        floatRect: null,
+        el: null,
+      };
+      const { body } = createTileShell(tile);
+      body.innerHTML =
+        `<pre id="nvim-code" class="nvim-code"></pre>` +
+        `<div class="nvim-status">` +
+          `<span><span class="nvim-mode">NORMAL</span> &nbsp;colors.toml</span>` +
+          `<span id="nvim-hex-info">accent=#7aa2f7</span>` +
+        `</div>`;
+      return tile;
+    }
+
+    function createBtopTile() {
+      const tile = {
+        id: 'btop-1',
+        kind: 'btop',
+        title: 'btop++ · B8G_ABI_MAGIC_V3 (0x33564742)',
+        badge: 'OPFS:/v11/files/',
+        floating: false,
+        floatRect: null,
+        el: null,
+      };
+      const { body } = createTileShell(tile);
+      body.innerHTML =
+        `<div class="btop">` +
+          `<div class="meter-row"><span class="meter-lbl">WASM CPU</span><div class="meter-track"><div id="m-cpu" class="meter-fill" style="width:18%;background:var(--accent)"></div></div><span id="v-cpu">18%</span></div>` +
+          `<div class="meter-row"><span class="meter-lbl">OPFS v11</span><div class="meter-track"><div id="m-opfs" class="meter-fill" style="width:32%;background:var(--green)"></div></div><span id="v-opfs">32%</span></div>` +
+          `<div class="meter-row"><span class="meter-lbl">GPU WebGPU</span><div class="meter-track"><div id="m-gpu" class="meter-fill" style="width:14%;background:var(--accent2)"></div></div><span id="v-gpu">14%</span></div>` +
+          `<div style="font-size:11px;color:var(--muted);margin-top:2px">Active 16-Color ANSI Palette (live theme cascade):</div>` +
+          `<div id="swatch-strip" class="swatch-strip"></div>` +
+        `</div>`;
+      return tile;
+    }
+
+    // Authentic Hyprland Dwindle BSP recursive subdivision
+    function computeDwindleRects(count, W, H, gap) {
+      const rects = [];
+      let x = 0, y = 0, w = W, h = H;
+      for (let i = 0; i < count; i++) {
+        if (i === count - 1) {
+          rects.push({ left: x, top: y, width: Math.max(120, w), height: Math.max(90, h) });
+          break;
+        }
+        // Split along longer axis (on wide screens: depth 0 splits L/R, depth 1 splits T/B, etc.)
+        const splitHoriz = (i % 2 === 0 && W >= 720) || (w >= h * 1.15);
+        const ratio = i === 0 ? 0.52 : 0.50;
+        if (splitHoriz && w > 300) {
+          const w1 = Math.floor((w - gap) * ratio);
+          rects.push({ left: x, top: y, width: w1, height: h });
+          x += w1 + gap;
+          w = w - w1 - gap;
+        } else {
+          const h1 = Math.floor((h - gap) * ratio);
+          rects.push({ left: x, top: y, width: w, height: h1 });
+          y += h1 + gap;
+          h = h - h1 - gap;
+        }
+      }
+      return rects;
+    }
+
+    function layoutWorkspace1() {
+      const W = ws1El.clientWidth || (window.innerWidth - 20);
+      const H = ws1El.clientHeight || (window.innerHeight - 52);
+
+      // Remove empty hint if present
+      const existingEmpty = ws1El.querySelector('.ws-empty');
+      if (ws1Tiles.length === 0) {
+        if (!existingEmpty) {
+          const empty = document.createElement('div');
+          empty.className = 'ws-empty';
+          empty.innerHTML =
+            `<div style="font-size:16px;font-weight:700">&Omega; Workspace 1 Empty</div>` +
+            `<div style="font-size:12px;color:var(--muted)">Press <b>Super+Enter</b> / <b>Alt+Enter</b> or click <b>+ Term</b> to spawn a tiled Alacritty window.</div>` +
+            `<button class="wb-pill" onclick="spawnTerminalTile()">+ Spawn Alacritty Terminal</button>`;
+          ws1El.append(empty);
+        }
+      } else if (existingEmpty) {
+        existingEmpty.remove();
+      }
+
+      const tiled = ws1Tiles.filter((t) => !t.floating);
+      const floating = ws1Tiles.filter((t) => t.floating);
+      const rects = computeDwindleRects(tiled.length, W, H, HYPR_GAP);
+
+      tiled.forEach((tile, idx) => {
+        const r = rects[idx];
+        const el = tile.el;
+        el.classList.remove('floating');
+        el.style.zIndex = tile.id === activeTileId ? '10' : '6';
+        el.style.left = r.left + 'px';
+        el.style.top = r.top + 'px';
+        el.style.width = r.width + 'px';
+        el.style.height = r.height + 'px';
+        const tag = el.querySelector('.tile-float-tag');
+        if (tag) tag.style.display = 'none';
+      });
+
+      floating.forEach((tile, idx) => {
+        const el = tile.el;
+        el.classList.add('floating');
+        if (!tile.floatRect) {
+          const fw = Math.min(Math.max(420, Math.floor(W * 0.56)), W - 32);
+          const fh = Math.min(Math.max(280, Math.floor(H * 0.60)), H - 32);
+          tile.floatRect = {
+            left: Math.max(16, Math.floor((W - fw) / 2) + idx * 24),
+            top: Math.max(16, Math.floor((H - fh) / 2) + idx * 20),
+            width: fw,
+            height: fh,
+          };
+        }
+        el.style.left = tile.floatRect.left + 'px';
+        el.style.top = tile.floatRect.top + 'px';
+        el.style.width = tile.floatRect.width + 'px';
+        el.style.height = tile.floatRect.height + 'px';
+        const tag = el.querySelector('.tile-float-tag');
+        if (tag) tag.style.display = 'inline-block';
+      });
+
+      ws1Tiles.forEach((t) => {
+        t.el.classList.toggle('active', t.id === activeTileId);
+      });
+
+      if (activeWs === 1) {
+        const floatCount = floating.length;
+        document.getElementById('wb-title').textContent =
+          `Hyprland · Dwindle BSP (${tiled.length} tiled${floatCount ? ` · ${floatCount} float` : ''})`;
+      }
+
+      submitWorkspaceSurfaces();
+    }
+
+    function submitWorkspaceSurfaces() {
+      const surfaces = [];
+      if (activeWs === 1) {
+        ws1Tiles.forEach((t) => {
+          const r = t.el.getBoundingClientRect();
+          surfaces.push({
+            id: t.id,
+            kind: t.kind,
+            x: Math.round(r.left),
+            y: Math.round(r.top),
+            w: Math.round(r.width),
+            h: Math.round(r.height),
+            active: t.id === activeTileId,
+            floating: t.floating,
+            ws: 1,
+          });
+        });
+      } else {
+        const wsEl = document.getElementById('ws-' + activeWs);
+        if (wsEl) {
+          wsEl.querySelectorAll('.tile').forEach((el, i) => {
+            const r = el.getBoundingClientRect();
+            surfaces.push({
+              id: `ws${activeWs}-tile-${i}`,
+              kind: 'panel',
+              x: Math.round(r.left),
+              y: Math.round(r.top),
+              w: Math.round(r.width),
+              h: Math.round(r.height),
+              active: el.classList.contains('active'),
+              floating: false,
+              ws: activeWs,
+            });
+          });
+        }
+      }
+      compositor.submitSurfaces(surfaces, currentThemeId);
+    }
+
+    function focusTileById(id) {
+      const tile = ws1Tiles.find((t) => t.id === id);
+      if (!tile) return;
+      activeTileId = tile.id;
+      ws1Tiles.forEach((t) => {
+        t.el.classList.toggle('active', t.id === activeTileId);
+        if (t.floating && t.id === activeTileId) {
+          floatZTop += 1;
+          t.el.style.zIndex = String(floatZTop);
+        }
+      });
+      submitWorkspaceSurfaces();
+    }
+
+    function cycleTileFocus(dir) {
+      if (!ws1Tiles.length) return;
+      const idx = ws1Tiles.findIndex((t) => t.id === activeTileId);
+      const nextIdx = (idx === -1 ? 0 : (idx + dir + ws1Tiles.length) % ws1Tiles.length);
+      const next = ws1Tiles[nextIdx];
+      focusTileById(next.id);
+      if (next.kind === 'terminal') {
+        const inp = next.el.querySelector('.term-in');
+        if (inp) inp.focus();
+      }
+      showToast(`Focus → ${next.title}`);
+    }
+
+    window.spawnTerminalTile = () => {
+      if (activeWs !== 1) switchWs(1);
+      if (ws1Tiles.length >= MAX_WS1_TILES) {
+        showToast(`Max ${MAX_WS1_TILES} windows reached on WS 1 (Super+W / Alt+W to close active)`);
+        const activeTerm = ws1Tiles.find((t) => t.id === activeTileId && t.kind === 'terminal') || ws1Tiles.find((t) => t.kind === 'terminal');
+        if (activeTerm) {
+          focusTileById(activeTerm.id);
+          activeTerm.el.querySelector('.term-in')?.focus();
+        }
+        return;
+      }
+      const tile = createTerminalTile(false);
+      ws1Tiles.push(tile);
+      ws1El.append(tile.el);
+      activeTileId = tile.id;
+      layoutWorkspace1();
+      setTimeout(() => tile.el.querySelector('.term-in')?.focus(), 20);
+      showToast(`Ω Spawned Alacritty #${termSeq} (Hyprland Dwindle BSP · ${ws1Tiles.length}/${MAX_WS1_TILES})`);
+    };
+
+    window.closeTile = (id) => {
+      const idx = ws1Tiles.findIndex((t) => t.id === id);
+      if (idx === -1) return;
+      const [removed] = ws1Tiles.splice(idx, 1);
+      removed.el.remove();
+      if (activeTileId === id) {
+        const fallback = ws1Tiles[Math.max(0, idx - 1)] || ws1Tiles[0];
+        activeTileId = fallback ? fallback.id : null;
+      }
+      layoutWorkspace1();
+      showToast(`Closed ${removed.title} (${ws1Tiles.length} remaining)`);
+    };
+
+    window.toggleTileFloat = (id) => {
+      const targetId = id || activeTileId;
+      const tile = ws1Tiles.find((t) => t.id === targetId);
+      if (!tile) return;
+      tile.floating = !tile.floating;
+      if (tile.floating) {
+        floatZTop += 1;
+        tile.el.style.zIndex = String(floatZTop);
+      }
+      layoutWorkspace1();
+      showToast(`${tile.title} → ${tile.floating ? 'FLOATING (drag titlebar)' : 'TILED (Dwindle BSP)'}`);
+    };
+
+    function initWorkspace1() {
+      ws1El.innerHTML = '';
+      ws1Tiles = [];
+      const t1 = createTerminalTile(true);
+      const t2 = createNvimTile();
+      const t3 = createBtopTile();
+      ws1Tiles.push(t1, t2, t3);
+      ws1El.append(t1.el, t2.el, t3.el);
+      activeTileId = t1.id;
+      lastExecTermId = t1.id;
+      layoutWorkspace1();
+    }
+
+    // =========================================================================
+    // 3. 25-Theme Cascade + Wallpaper + Neovim + btop++ + fastfetch
+    // =========================================================================
     function applyTheme(themeId, persist = true) {
       const t = THEMES.find((x) => x.id === themeId) || THEMES[0];
       if (!t) return;
       const p = pickColors(t);
+      currentPalette = p;
+      currentThemeObj = t;
+
       const r = document.documentElement.style;
       r.setProperty('--bg', p.bg);
       r.setProperty('--bg-dark', p.bgDark);
@@ -468,61 +1408,73 @@
       r.setProperty('--selection', p.selection);
       r.setProperty('--border', hexToRgba(p.accent, 0.7));
       r.setProperty('--border-inactive', hexToRgba(p.muted, 0.35));
-      r.setProperty('--glass', hexToRgba(p.bg, t.light ? 0.90 : 0.86));
+      r.setProperty('--glass', hexToRgba(p.bg, t.light ? 0.88 : 0.82));
 
       document.getElementById('wb-theme-name').textContent = t.label;
-      document.getElementById('nvim-theme-path').textContent = t.id;
-      document.getElementById('nvim-hex-info').textContent = `accent=${p.accent} · bg=${p.bg}`;
 
-      // Update Neovim live syntax view
-      const lines = [
-        `<span class="syn-com"># awesome-os/desktop-omarchy/themes/${t.id}</span>`,
-        `<span class="syn-com"># Live Hyprland + Waybar + Alacritty + Neovim cascade</span>`,
-        `<span class="syn-kw">theme</span> = <span class="syn-str">"${t.label}"</span>`,
-        `<span class="syn-kw">mode</span>  = <span class="syn-str">"${t.light ? 'light' : 'dark'}"</span>`,
-        `<span class="syn-fn">accent</span>     = <span class="syn-str">"${p.accent}"</span>`,
-        `<span class="syn-fn">background</span> = <span class="syn-str">"${p.bg}"</span>`,
-        `<span class="syn-fn">foreground</span> = <span class="syn-str">"${p.fg}"</span>`,
-        `<span class="syn-fn">selection</span>  = <span class="syn-str">"${p.selection}"</span>`,
-        `<span class="syn-fn">green</span>      = <span class="syn-str">"${p.green}"</span>`,
-        `<span class="syn-fn">yellow</span>     = <span class="syn-str">"${p.yellow}"</span>`,
-        `<span class="syn-fn">red</span>        = <span class="syn-err">"${p.red}"</span>`,
-        `<span class="syn-fn">magenta</span>    = <span class="syn-str">"${p.accent2}"</span>`,
-        `<span class="syn-com"># Backgrounds: ${(t.backgrounds || []).slice(0, 3).join(', ') || 'procedural-webgpu'}</span>`,
-      ];
-      document.getElementById('nvim-code').innerHTML = lines
-        .map((l, i) => `<span class="ln">${String(i + 1).padStart(2, ' ')}</span>${l}`)
-        .join('\n');
+      const nvimPath = document.getElementById('nvim-theme-path');
+      if (nvimPath) nvimPath.textContent = t.id;
+      const nvimHex = document.getElementById('nvim-hex-info');
+      if (nvimHex) nvimHex.textContent = `accent=${p.accent} · bg=${p.bg}`;
 
-      // Update ANSI swatches
-      const swatches = [p.bg, p.surface, p.accent, p.accent2, p.green, p.yellow, p.red, p.cyan, p.fg, p.fgBright];
-      document.getElementById('swatch-strip').innerHTML = swatches
-        .map((hex) => `<div class="swatch" style="background:${hex}" title="${hex}"></div>`)
-        .join('');
+      const nvimCode = document.getElementById('nvim-code');
+      if (nvimCode) {
+        const bundledWp = THEME_WALLPAPERS[t.id] || 'procedural-webgpu-wgsl';
+        const lines = [
+          `<span class="syn-com"># awesome-os/desktop-omarchy/themes/${t.id}</span>`,
+          `<span class="syn-com"># Live Hyprland BSP + WebGPU + Waybar + Alacritty + Neovim cascade</span>`,
+          `<span class="syn-kw">theme</span> = <span class="syn-str">"${t.label}"</span>`,
+          `<span class="syn-kw">mode</span>  = <span class="syn-str">"${t.light ? 'light' : 'dark'}"</span>`,
+          `<span class="syn-fn">accent</span>     = <span class="syn-str">"${p.accent}"</span>`,
+          `<span class="syn-fn">background</span> = <span class="syn-str">"${p.bg}"</span>`,
+          `<span class="syn-fn">foreground</span> = <span class="syn-str">"${p.fg}"</span>`,
+          `<span class="syn-fn">selection</span>  = <span class="syn-str">"${p.selection}"</span>`,
+          `<span class="syn-fn">green</span>      = <span class="syn-str">"${p.green}"</span>`,
+          `<span class="syn-fn">yellow</span>     = <span class="syn-str">"${p.yellow}"</span>`,
+          `<span class="syn-fn">red</span>        = <span class="syn-err">"${p.red}"</span>`,
+          `<span class="syn-fn">magenta</span>    = <span class="syn-str">"${p.accent2}"</span>`,
+          `<span class="syn-com"># Wallpaper: ${bundledWp}</span>`,
+        ];
+        nvimCode.innerHTML = lines
+          .map((l, i) => `<span class="ln">${String(i + 1).padStart(2, ' ')}</span>${l}`)
+          .join('\n');
+      }
 
-      // Update fastfetch
-      document.getElementById('fastfetch-pane').textContent = [
-        `   ██████╗ ███╗   ███╗ █████╗ ██████╗  ██████╗██╗  ██╗██╗   ██╗`,
-        `  ██╔═══██╗████╗ ████║██╔══██╗██╔══██╗██╔════╝██║  ██║╚██╗ ██╔╝`,
-        `  ██║   ██║██╔████╔██║███████║██████╔╝██║     ███████║ ╚████╔╝ `,
-        `  ██║   ██║██║╚██╔╝██║██╔══██║██╔══██╗██║     ██╔══██║  ╚██╔╝  `,
-        `  ╚██████╔╝██║ ╚═╝ ██║██║  ██║██║  ██║╚██████╗██║  ██║   ██║   `,
-        ``,
-        `  OS:        Awesome-OS 2026.11 × Omarchy Hyprland`,
-        `  Theme:     ${t.label} (${t.id}) [${t.light ? 'Light' : 'Dark'}]`,
-        `  WM:        Hyprland Tiling Compositor (holo-display-wayland)`,
-        `  ABI:       B8G_ABI_MAGIC_V3 (0x33564742)`,
-        `  Storage:   OPFS:/v11/files/ (ServiceWorker Cache API Bypassed)`,
-        `  Coreutils: awesome-os/coreutils (MIT static musl Rust)`,
-        `  Themes:    ${THEMES.length} authentic themes loaded`,
-      ].join('\n');
+      const swatchStrip = document.getElementById('swatch-strip');
+      if (swatchStrip) {
+        const swatches = [p.bg, p.surface, p.accent, p.accent2, p.green, p.yellow, p.red, p.cyan, p.fg, p.fgBright];
+        swatchStrip.innerHTML = swatches
+          .map((hex) => `<div class="swatch" style="background:${hex}" title="${hex}"></div>`)
+          .join('');
+      }
 
-      // Update active card in Workspace 4
+      const fastfetchPane = document.getElementById('fastfetch-pane');
+      if (fastfetchPane) {
+        fastfetchPane.textContent = [
+          `   ██████╗ ███╗   ███╗ █████╗ ██████╗  ██████╗██╗  ██╗██╗   ██╗`,
+          `  ██╔═══██╗████╗ ████║██╔══██╗██╔══██╗██╔════╝██║  ██║╚██╗ ██╔╝`,
+          `  ██║   ██║██╔████╔██║███████║██████╔╝██║     ███████║ ╚████╔╝ `,
+          `  ██║   ██║██║╚██╔╝██║██╔══██║██╔══██╗██║     ██╔══██║  ╚██╔╝  `,
+          `  ╚██████╔╝██║ ╚═╝ ██║██║  ██║██║  ██║╚██████╗██║  ██║   ██║   `,
+          ``,
+          `  OS:         Awesome-OS 2026.11 × Omarchy Hyprland`,
+          `  Theme:      ${t.label} (${t.id}) [${t.light ? 'Light' : 'Dark'}]`,
+          `  WM:         Hyprland Dwindle BSP (${ws1Tiles.length} live windows)`,
+          `  Compositor: holo-display-webgpu (${compositor.backend} · ${compositor.frameMs.toFixed(1)}ms)`,
+          `  ABI / Ring: B8G_ABI_MAGIC_V3 (0x33564742 · B8G_ARENA_V1)`,
+          `  Wallpaper:  ${THEME_WALLPAPERS[t.id] || 'Procedural WebGPU WGSL Aurora'}`,
+          `  Storage:    OPFS:/v11/files/ (ServiceWorker Cache API Bypassed)`,
+          `  Coreutils:  awesome-os/coreutils (MIT static musl Rust)`,
+          `  Themes:     ${THEMES.length} authentic themes loaded`,
+        ].join('\n');
+      }
+
       document.querySelectorAll('.theme-card').forEach((el) => {
         el.classList.toggle('active', el.dataset.themeId === t.id);
       });
 
-      drawWallpaper(p, t.light);
+      compositor.setTheme(p, t.light, t.id);
+      submitWorkspaceSurfaces();
 
       if (persist) {
         currentThemeId = t.id;
@@ -537,43 +1489,6 @@
       }
     }
 
-    // Procedural wallpaper matched to active Omarchy theme
-    function drawWallpaper(p, isLight) {
-      const canvas = document.getElementById('wallpaper-canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      g.addColorStop(0, p.bgDark);
-      g.addColorStop(0.55, p.bg);
-      g.addColorStop(1, p.surface);
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Soft thematic aurora blobs
-      const r1 = ctx.createRadialGradient(canvas.width * 0.2, canvas.height * 0.25, 10, canvas.width * 0.2, canvas.height * 0.25, canvas.width * 0.45);
-      r1.addColorStop(0, hexToRgba(p.accent, isLight ? 0.24 : 0.28));
-      r1.addColorStop(1, 'transparent');
-      ctx.fillStyle = r1;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      const r2 = ctx.createRadialGradient(canvas.width * 0.82, canvas.height * 0.78, 10, canvas.width * 0.82, canvas.height * 0.78, canvas.width * 0.42);
-      r2.addColorStop(0, hexToRgba(p.accent2, isLight ? 0.22 : 0.25));
-      r2.addColorStop(1, 'transparent');
-      ctx.fillStyle = r2;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Subtle Hyprland grid
-      ctx.strokeStyle = hexToRgba(p.accent, isLight ? 0.08 : 0.07);
-      ctx.lineWidth = 1;
-      for (let x = 0; x < canvas.width; x += 56) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += 56) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-      }
-    }
-
     function renderThemeGrid() {
       const grid = document.getElementById('theme-grid');
       grid.innerHTML = '';
@@ -585,9 +1500,10 @@
         card.style.background = p.bg;
         card.style.color = p.fgBright;
         card.style.borderColor = hexToRgba(p.muted, 0.35);
+        const wpTag = THEME_WALLPAPERS[t.id] ? ' · wallpaper' : '';
         card.innerHTML =
           `<h4>${t.label}</h4>` +
-          `<div style="font-size:11px;color:${p.muted};margin-bottom:8px">${t.light ? 'Light' : 'Dark'} · ${t.id}</div>` +
+          `<div style="font-size:11px;color:${p.muted};margin-bottom:8px">${t.light ? 'Light' : 'Dark'} · ${t.id}${wpTag}</div>` +
           `<div class="mini-swatches">` +
           [p.accent, p.accent2, p.green, p.yellow, p.red].map((h) => `<span class="mini-sw" style="background:${h}"></span>`).join('') +
           `</div>`;
@@ -606,19 +1522,24 @@
     window.focusTile = (el) => {
       el.closest('.ws-view').querySelectorAll('.tile').forEach((t) => t.classList.remove('active'));
       el.classList.add('active');
+      submitWorkspaceSurfaces();
     };
 
     window.switchWs = (n) => {
       activeWs = n;
       document.querySelectorAll('.wb-btn.ws').forEach((b) => b.classList.toggle('active', Number(b.dataset.ws) === n));
       [1, 2, 3, 4].forEach((i) => document.getElementById('ws-' + i).classList.toggle('hidden', i !== n));
-      const titles = {
-        1: 'Hyprland · Dev Workspace (Alacritty + Neovim + btop)',
-        2: 'Hyprland · Sectium Browser & B8G WebGPU Emukit',
-        3: 'Hyprland · OPFS v11 CAS & System Diagnostics',
-        4: 'Hyprland · Omarchy 25-Theme Studio',
-      };
-      document.getElementById('wb-title').textContent = titles[n];
+      if (n === 1) {
+        layoutWorkspace1();
+      } else {
+        const titles = {
+          2: 'Hyprland · Sectium Browser & B8G WebGPU Emukit',
+          3: 'Hyprland · OPFS v11 CAS & System Diagnostics',
+          4: 'Hyprland · Omarchy 25-Theme Studio',
+        };
+        document.getElementById('wb-title').textContent = titles[n];
+        submitWorkspaceSurfaces();
+      }
       if (n === 2) {
         const f = document.getElementById('ws2-frame');
         if (!f.src || f.src === 'about:blank') f.src = '/emukit.html';
@@ -649,7 +1570,9 @@
       }
     }
 
-    // Walker / Omarchy Theme Switcher Modal
+    // =========================================================================
+    // 4. Walker / Omarchy Theme Switcher Modal + Keyboard Lock
+    // =========================================================================
     const walkerModal = document.getElementById('walker-modal');
     const walkerInput = document.getElementById('walker-input');
     const walkerList = document.getElementById('walker-list');
@@ -657,9 +1580,12 @@
 
     const MENU_ACTIONS = [
       { id: 'act-themes', label: 'Omarchy Theme Switcher (25 Themes)', sub: 'Super+Ctrl+Shift+Space · Alt+T', run: () => openWalker('themes') },
+      { id: 'act-term', label: 'Spawn Tiled Alacritty Terminal (Dwindle BSP)', sub: 'Super+Enter · Alt+Enter', run: () => { closeWalker(true); spawnTerminalTile(); } },
+      { id: 'act-float', label: 'Toggle Floating vs Tiled on Active Window', sub: 'Super+V · Alt+V', run: () => { closeWalker(true); toggleTileFloat(); } },
+      { id: 'act-bg', label: 'Cycle Real Omarchy Wallpaper vs Pure WebGPU Shader', sub: 'Waybar BG button', run: () => { closeWalker(true); cycleBgMode(); } },
       { id: 'act-next', label: 'Next Omarchy Theme', sub: 'Super+Ctrl+Space · Alt+N', run: () => { closeWalker(true); nextTheme(); } },
       { id: 'act-super', label: 'Toggle Real Super-Key Capture (Fullscreen Keyboard Lock)', sub: 'Captures OS Super/Meta hotkeys directly in browser', run: () => { closeWalker(true); toggleSuperCapture(); } },
-      { id: 'act-ws1', label: 'Workspace 1 — Alacritty + Neovim + btop', sub: 'Super+1 · Alt+1', run: () => { closeWalker(true); switchWs(1); } },
+      { id: 'act-ws1', label: 'Workspace 1 — Hyprland Dwindle BSP (Alacritty + Neovim + btop)', sub: 'Super+1 · Alt+1', run: () => { closeWalker(true); switchWs(1); } },
       { id: 'act-ws2', label: 'Workspace 2 — Sectium Browser & B8G Emukit', sub: 'Super+2 · Alt+2', run: () => { closeWalker(true); switchWs(2); } },
       { id: 'act-ws3', label: 'Workspace 3 — OPFS v11 CAS & fastfetch', sub: 'Super+3 · Alt+3', run: () => { closeWalker(true); switchWs(3); } },
       { id: 'act-ws4', label: 'Workspace 4 — Visual 25-Theme Studio', sub: 'Super+4 · Alt+4', run: () => { closeWalker(true); switchWs(4); } },
@@ -672,7 +1598,7 @@
       if (document.fullscreenElement) {
         try { if (navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock(); } catch {}
         await document.exitFullscreen().catch(() => {});
-        btn.textContent = '⌨ Capture Super';
+        btn.textContent = '⌨ Super';
         showToast('Released Fullscreen Keyboard Lock (Alt+* fallbacks active)');
         return;
       }
@@ -681,11 +1607,12 @@
         if (navigator.keyboard && typeof navigator.keyboard.lock === 'function') {
           await navigator.keyboard.lock([
             'MetaLeft', 'MetaRight', 'AltLeft', 'ControlLeft', 'ShiftLeft',
-            'Space', 'Enter', 'KeyT', 'KeyN', 'KeyK', 'KeyW',
+            'Space', 'Enter', 'KeyT', 'KeyN', 'KeyK', 'KeyW', 'KeyV',
+            'ArrowLeft', 'ArrowRight',
             'Digit1', 'Digit2', 'Digit3', 'Digit4',
           ]);
           btn.textContent = '⌨ Super LOCKED';
-          showToast('Ω Real Super/Meta hotkeys locked! Try Super+Space, Super+Ctrl+Shift+Space, Super+1..4');
+          showToast('Ω Real Super/Meta hotkeys locked! Try Super+Enter, Super+V, Super+W, Super+←/→');
         } else {
           btn.textContent = '⌨ Fullscreen (Alt)';
           showToast('Fullscreen active (this browser lacks Keyboard Lock — use Alt+* or Super when available)');
@@ -699,26 +1626,36 @@
       if (!document.fullscreenElement) {
         try { if (navigator.keyboard && navigator.keyboard.unlock) navigator.keyboard.unlock(); } catch {}
         const btn = document.getElementById('wb-kbd-btn');
-        if (btn) btn.textContent = '⌨ Capture Super';
+        if (btn) btn.textContent = '⌨ Super';
       }
+      setTimeout(() => {
+        compositor.resize();
+        layoutWorkspace1();
+      }, 60);
     });
 
     function showHotkeysHelp() {
       switchWs(1);
-      termOut.textContent += [
+      const outEl = getTerminalOutById(activeTileId) || getAnyTerminalOut();
+      if (!outEl) {
+        showToast('Super+Enter: New Term | Super+W: Close | Super+V: Float | Super+←/→: Focus | Super+Ctrl+Shift+Space: Themes');
+        return;
+      }
+      outEl.textContent += [
         '',
-        '=== Original Omarchy Hyprland Hotkeys (Click "Capture Super" for real Meta/Super) ===',
-        '  Super+Space              (or Alt+Space)   Walker App Launcher',
-        '  Super+Alt+Space          (or Alt+M)       Omarchy Main Menu',
+        '=== Omarchy Hyprland Dwindle BSP Hotkeys (Click "⌨ Super" for real Meta/Super) ===',
+        '  Super+Enter              (or Alt+Enter)   Spawn new tiled Alacritty terminal (max 6)',
+        '  Super+W                  (or Alt+W)       Close active tiled window & reflow BSP',
+        '  Super+V                  (or Alt+V)       Toggle Floating vs Tiled on active window',
+        '  Super+← / Super+→        (or Alt+← / →)   Move focus between windows',
+        '  Super+Space              (or Alt+Space)   Walker App Launcher / Omarchy Menu',
         '  Super+Ctrl+Shift+Space   (or Alt+T)       Omarchy 25-Theme Switcher',
         '  Super+Ctrl+Space         (or Alt+N)       Next Omarchy Theme',
-        '  Super+Enter              (or Alt+Enter)   Focus Alacritty Terminal',
         '  Super+1 / 2 / 3 / 4      (or Alt+1..4)    Switch Hyprland Workspaces 1-4',
         '  Super+K                  (or Alt+K)       Show this Hotkeys Cheatsheet',
-        '  Super+W                  (or Alt+W)       Close modal / return to WS 1',
         '',
       ].join('\n');
-      termOut.scrollTop = termOut.scrollHeight;
+      outEl.scrollTop = outEl.scrollHeight;
     }
 
     window.openWalker = (mode) => {
@@ -757,9 +1694,10 @@
         el.className = 'walker-item' + (idx === walkerIndex ? ' selected' : '');
         if (walkerMode === 'themes') {
           const p = pickColors(item);
+          const wpTag = THEME_WALLPAPERS[item.id] ? ' · wallpaper' : '';
           el.innerHTML =
             `<div><div class="walker-item-title">${item.label}${item.id === currentThemeId ? ' ✓' : ''}</div>` +
-            `<div class="walker-item-sub">${item.id} · ${item.light ? 'light' : 'dark'} · ${p.accent}</div></div>` +
+            `<div class="walker-item-sub">${item.id} · ${item.light ? 'light' : 'dark'} · ${p.accent}${wpTag}</div></div>` +
             `<div class="mini-swatches">` +
             [p.bg, p.accent, p.accent2, p.green, p.red].map((h) => `<span class="mini-sw" style="background:${h}"></span>`).join('') +
             `</div>`;
@@ -824,11 +1762,23 @@
         openWalker('menu');
         return;
       }
-      // Super+Enter or Alt+Enter -> Focus Alacritty Terminal
+      // Super+Enter or Alt+Enter -> Spawn new tiled Alacritty terminal on WS 1
       if ((sup || alt) && e.key === 'Enter' && walkerModal.classList.contains('hidden')) {
         e.preventDefault();
-        switchWs(1);
-        termIn.focus();
+        spawnTerminalTile();
+        return;
+      }
+      // Super+V or Alt+V -> Toggle Floating vs Tiled on active WS 1 window
+      if ((sup || alt) && e.key.toLowerCase() === 'v' && walkerModal.classList.contains('hidden')) {
+        e.preventDefault();
+        if (activeWs !== 1) switchWs(1);
+        toggleTileFloat(activeTileId);
+        return;
+      }
+      // Super+ArrowLeft/Right or Alt+ArrowLeft/Right -> Move focus between WS 1 windows
+      if ((sup || alt) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && walkerModal.classList.contains('hidden')) {
+        e.preventDefault();
+        if (activeWs === 1) cycleTileFocus(e.key === 'ArrowRight' ? 1 : -1);
         return;
       }
       // Super+1..4 or Alt+1..4 -> Workspaces 1-4
@@ -843,56 +1793,18 @@
         showHotkeysHelp();
         return;
       }
-      // Super+W or Alt+W -> Close Walker / Return to WS 1
+      // Super+W or Alt+W -> Close Walker, or close active WS 1 tile, or return to WS 1
       if ((sup || alt) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
-        if (!walkerModal.classList.contains('hidden')) closeWalker(false);
-        else switchWs(1);
+        if (!walkerModal.classList.contains('hidden')) {
+          closeWalker(false);
+        } else if (activeWs === 1 && activeTileId) {
+          closeTile(activeTileId);
+        } else {
+          switchWs(1);
+        }
       }
     }, true);
-
-    // Interactive Alacritty terminal commands
-    document.getElementById('term-form').onsubmit = (e) => {
-      e.preventDefault();
-      const cmd = termIn.value.trim();
-      termIn.value = '';
-      if (!cmd) return;
-      termOut.textContent += `omarchy@awesome-os ~> ${cmd}\n`;
-      if (cmd === 'clear') {
-        termOut.textContent = '';
-      } else if (cmd === 'help') {
-        termOut.textContent += [
-          'Omarchy + Awesome-OS Commands:',
-          '  omarchy-theme-list             List all 25 authentic Omarchy themes',
-          '  omarchy-theme-set <theme-id>   Switch theme live (e.g. lumi-chromatic, gruvbox, nord)',
-          '  omarchy-theme-next             Cycle to next Omarchy theme',
-          '  fastfetch                      Show system + active theme info',
-          '  wasm-check / holo-pm status    Run live B8G_ABI_MAGIC_V3 WASM in SharedWorker',
-          '  reboot                         Return to Awesome-OS Desktop Greeter',
-          'Shortcuts: Alt+T (Theme Switcher) | Alt+Space (Walker Menu) | Alt+1..4 (Workspaces)',
-        ].join('\n') + '\n';
-      } else if (cmd === 'omarchy-theme-list') {
-        termOut.textContent += THEMES.map((t) => `  ${t.id === currentThemeId ? '*' : ' '} ${t.id.padEnd(20)} (${t.light ? 'light' : 'dark'})`).join('\n') + '\n';
-      } else if (cmd.startsWith('omarchy-theme-set ')) {
-        const id = cmd.slice('omarchy-theme-set '.length).trim();
-        const found = THEMES.find((t) => t.id === id);
-        if (found) {
-          applyTheme(found.id, true);
-          termOut.textContent += `Applied theme "${found.label}" (${found.id}) across Hyprland, Waybar, Alacritty & Neovim.\n`;
-        } else {
-          termOut.textContent += `Unknown theme "${id}". Run "omarchy-theme-list" to see all 25 themes.\n`;
-        }
-      } else if (cmd === 'omarchy-theme-next') {
-        nextTheme();
-      } else if (cmd === 'fastfetch') {
-        termOut.textContent += document.getElementById('fastfetch-pane').textContent + '\n';
-      } else if (cmd === 'reboot') {
-        location.href = './';
-      } else {
-        port.postMessage({ type: 'shell-exec', cmd });
-      }
-      termOut.scrollTop = termOut.scrollHeight;
-    };
 
     // Clock & btop live animation
     function tick() {
@@ -901,44 +1813,51 @@
         now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + '  ' + now.toTimeString().slice(0, 5);
       const cpu = 10 + Math.floor(Math.random() * 18);
       const gpu = 8 + Math.floor(Math.random() * 14);
-      document.getElementById('m-cpu').style.width = cpu + '%';
-      document.getElementById('v-cpu').textContent = cpu + '%';
-      document.getElementById('m-gpu').style.width = gpu + '%';
-      document.getElementById('v-gpu').textContent = gpu + '%';
+      const mCpu = document.getElementById('m-cpu');
+      const vCpu = document.getElementById('v-cpu');
+      const mGpu = document.getElementById('m-gpu');
+      const vGpu = document.getElementById('v-gpu');
+      if (mCpu && vCpu) { mCpu.style.width = cpu + '%'; vCpu.textContent = cpu + '%'; }
+      if (mGpu && vGpu) { mGpu.style.width = gpu + '%'; vGpu.textContent = gpu + '%'; }
     }
     tick();
     setInterval(tick, 2400);
+
     window.addEventListener('resize', () => {
-      const t = THEMES.find((x) => x.id === currentThemeId);
-      if (t) drawWallpaper(pickColors(t), t.light);
+      compositor.resize();
+      if (activeWs === 1) layoutWorkspace1();
+      else submitWorkspaceSurfaces();
     });
 
-    // Boot sequence: load all 25 authentic Omarchy themes from omarchy-themes.json
+    // Boot sequence: init holo-display-webgpu + load all 25 Omarchy themes + build Dwindle BSP Workspace 1
     (async () => {
       const bar = document.getElementById('boot-bar');
       const sub = document.getElementById('boot-sub');
-      bar.style.width = '48%';
-      try {
-        const res = await fetch('./omarchy-themes.json');
-        THEMES = await res.json();
-      } catch {
-        THEMES = [{ id: 'tokyo-night', label: 'Tokyo Night', light: false, colors: { accent: '#7aa2f7', background: '#1a1b26', foreground: '#a9b1d6' } }];
-      }
-      bar.style.width = '88%';
-      sub.textContent = `Loaded ${THEMES.length} Omarchy themes · initializing Hyprland tiling...`;
+      wbBgBtn.textContent = BG_MODE_LABELS[bgMode];
+      bar.style.width = '35%';
+
+      const [, themesLoaded] = await Promise.all([
+        compositor.init(wallpaperCanvas),
+        fetch('./omarchy-themes.json')
+          .then((res) => res.json())
+          .catch(() => [{ id: 'tokyo-night', label: 'Tokyo Night', light: false, colors: { accent: '#7aa2f7', background: '#1a1b26', foreground: '#a9b1d6' } }]),
+      ]);
+      THEMES = themesLoaded;
+      bar.style.width = '82%';
+      sub.textContent = `Loaded ${THEMES.length} Omarchy themes · ${compositor.backend} compositor ready...`;
+
+      initWorkspace1();
       renderThemeGrid();
       applyTheme(currentThemeId, false);
-      termOut.textContent =
-        `Welcome to Omarchy on Awesome-OS (Hyprland + 25 Authentic Themes)\n` +
-        `Press Alt+T (or click the theme pill in Waybar) to open the live Theme Switcher.\n` +
-        `Press Alt+Space for the Walker Launcher, or type "help" / "omarchy-theme-list".\n\n`;
+
       setTimeout(() => {
         bar.style.width = '100%';
         const loader = document.getElementById('boot-loader');
         loader.classList.add('fade');
         setTimeout(() => loader.classList.add('hidden'), 280);
-        termIn.focus();
-      }, 260);
+        const firstInput = ws1El.querySelector('.term-in');
+        if (firstInput) firstInput.focus();
+      }, 240);
     })();
   </script>
 </body>
